@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
-import { fetchPortfolioData } from './services/web3';
+import { fetchBasicPortfolioData, fetchSupportedCharts } from './services/web3';
 import { TokenData } from './types';
 
 const App: React.FC = () => {
@@ -18,17 +19,41 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      console.log("Loading portfolio for:", address);
-      const data = await fetchPortfolioData(address);
+      console.log("Loading basic portfolio for:", address);
+      // Stage 1: Load Basic Data (Prices + Balances) - Fast
+      const data = await fetchBasicPortfolioData(address);
       setTokens(data);
       
       // Calculate Total Value
       const total = data.reduce((acc, token) => acc + (token.price * token.balance), 0);
       setTotalValue(total);
+      
+      // Stop Loading Spinner here so user sees the list
+      setLoading(false);
+
+      // Stage 2: Lazy Load Charts - Slower
+      console.log("Fetching charts in background...");
+      try {
+        const charts = await fetchSupportedCharts();
+        
+        // Update tokens with real charts where available
+        setTokens(prevTokens => {
+            return prevTokens.map(t => {
+                // If we have a matching chart for this token ID
+                if (charts[t.id]) {
+                    return { ...t, history: charts[t.id] };
+                }
+                return t;
+            });
+        });
+      } catch (chartError) {
+        console.warn("Failed to load background charts", chartError);
+        // Do nothing, keep synthetic charts
+      }
+
     } catch (e) {
       console.error("Failed to load portfolio", e);
       setError("Failed to load data. Please try again.");
-    } finally {
       setLoading(false);
     }
   }, []);

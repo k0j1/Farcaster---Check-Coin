@@ -156,11 +156,11 @@ async function fetchDexScreenerPrices(addresses: string[]): Promise<Record<strin
 }
 
 // Fetch Market Data from CoinGecko (Prices + Sparkline) for Supported Tokens
-async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: number, change: number, sparkline: number[] }>> {
+async function fetchCoinGeckoMarketData(includeSparkline: boolean): Promise<Record<string, { price: number, change: number, sparkline: number[] }>> {
   try {
     const ids = SUPPORTED_TOKENS.map(t => t.cgId).join(',');
     const data = await fetchWithRetry(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true`,
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&sparkline=${includeSparkline}`,
       undefined, 
       2
     );
@@ -196,9 +196,9 @@ function ensureHistory(price: number, change: number, history: number[]): number
     return [prevPrice, price];
 }
 
-export const fetchPortfolioData = async (address: string | null): Promise<TokenData[]> => {
-  // 1. Fetch Market Data for SUPPORTED tokens (High quality data)
-  const marketData = await fetchCoinGeckoMarketData();
+export const fetchBasicPortfolioData = async (address: string | null): Promise<TokenData[]> => {
+  // 1. Fetch Market Data for SUPPORTED tokens (Sparkline=false for speed)
+  const marketData = await fetchCoinGeckoMarketData(false);
   
   // If no address, return standard Market View
   if (!address) {
@@ -206,8 +206,8 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
         const info = marketData[token.cgId];
         const currentPrice = (info && info.price != null) ? info.price : 0;
         const change24h = (info && info.change != null) ? info.change : 0;
-        let history = (info && info.sparkline) ? info.sparkline.slice(-24) : [];
-        history = ensureHistory(currentPrice, change24h, history);
+        // Use synthetic history initially
+        const history = ensureHistory(currentPrice, change24h, []);
 
         return {
           id: token.id,
@@ -246,7 +246,8 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
 
     const currentPrice = (info && info.price != null) ? info.price : 0;
     const change24h = (info && info.change != null) ? info.change : 0;
-    const history = (info && info.sparkline) ? info.sparkline.slice(-24) : [];
+    // Synthetic history initially
+    const history = ensureHistory(currentPrice, change24h, []);
 
     return {
       id: token.id,
@@ -311,11 +312,7 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
               };
           }
       }
-      // Ensure history even for supported tokens if sparkline failed
-      return {
-          ...token,
-          history: ensureHistory(token.price, token.change24h, token.history)
-      };
+      return token;
   });
 
   // 8. Construct Dynamic Tokens
@@ -344,3 +341,14 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
   // 9. Merge and Return
   return [...knownTokens, ...dynamicTokens];
 };
+
+export const fetchSupportedCharts = async (): Promise<Record<string, number[]>> => {
+    const marketData = await fetchCoinGeckoMarketData(true);
+    const charts: Record<string, number[]> = {};
+    for (const id in marketData) {
+        if (marketData[id].sparkline && marketData[id].sparkline.length > 0) {
+            charts[id] = marketData[id].sparkline.slice(-24);
+        }
+    }
+    return charts;
+}
