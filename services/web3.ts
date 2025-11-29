@@ -2,8 +2,6 @@
 import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
 
-// ERC-20 balanceOf function selector: 0x70a08231
-const BALANCE_OF_ID = '0x70a08231';
 const BLOCKSCOUT_API_URL = "https://base.blockscout.com/api";
 
 export const truncateAddress = (address: string) => {

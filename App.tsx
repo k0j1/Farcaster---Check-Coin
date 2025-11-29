@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
