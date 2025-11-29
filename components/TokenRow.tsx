@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TokenData } from '../types';
 import { Sparkline } from './Sparkline';
 
@@ -8,6 +8,32 @@ interface TokenRowProps {
 
 export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
   const [imageError, setImageError] = useState(false);
+  const [isChartVisible, setIsChartVisible] = useState(false);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // Lazy load chart visibility logic
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          setIsChartVisible(true);
+          observer.disconnect();
+        }
+      },
+      { 
+        rootMargin: '200px', // Load before it comes into view
+        threshold: 0.01 
+      }
+    );
+
+    if (rowRef.current) {
+      observer.observe(rowRef.current);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
   
   // Safely handle potentially null/undefined change24h
   const changeValue = token.change24h ?? 0;
@@ -40,7 +66,7 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
   };
 
   return (
-    <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
+    <div ref={rowRef} className="flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
       
       {/* Left: Icon & Symbol & Unit Price */}
       <div className="flex items-center space-x-3 w-1/3">
@@ -68,9 +94,13 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
         </div>
       </div>
 
-      {/* Middle: Chart */}
+      {/* Middle: Chart (Lazy Loaded) */}
       <div className="w-1/4 flex justify-center">
-        <Sparkline data={token.history} color={color} width={60} height={30} />
+        {isChartVisible ? (
+           <Sparkline data={token.history} color={color} width={60} height={30} />
+        ) : (
+           <div style={{ width: 60, height: 30 }} /> 
+        )}
       </div>
 
       {/* Right: Holding Value & Change */}
