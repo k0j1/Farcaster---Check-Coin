@@ -97,7 +97,7 @@ export const fetchInitialUserAssets = async (address: string | null): Promise<To
             change24h: 0,
             history: [0, 0],
             imageUrl: (token as any).imageUrl,
-            // Store cgId internally if needed for next steps, but TokenData doesn't strictly need it public
+            address: (token as any).address, // Include address
         }));
     }
 
@@ -116,7 +116,9 @@ export const fetchInitialUserAssets = async (address: string | null): Promise<To
                 balance: ethBal,
                 change24h: 0,
                 history: [0, 0],
-                imageUrl: ethInfo?.imageUrl
+                imageUrl: ethInfo?.imageUrl,
+                // Native ETH typically uses 0x00... or 0xEee... for display/actions, or explicitly undefined
+                address: '0x0000000000000000000000000000000000000000' 
             });
         }
     } catch (e) {
@@ -146,12 +148,8 @@ export const fetchInitialUserAssets = async (address: string | null): Promise<To
             change24h: 0,
             history: [0, 0],
             imageUrl: supported?.imageUrl, // Use supported image if available
-            // Store raw address for price fetching later
-            // We can treat 'id' as address if it's not a supported token ID, 
-            // but for supported tokens 'id' is like 'usd-coin'. 
-            // We need a way to link back to address in Stage 2. 
-            // We'll rely on SUPPORTED_TOKENS lookup or the ID being an address.
-        } as TokenData & { _address?: string, _cgId?: string }); // internal properties
+            address: contractAddr, // Explicitly set address
+        } as TokenData);
     }
 
     return tokens;

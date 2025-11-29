@@ -117,6 +117,20 @@ const App: React.FC = () => {
     }
   }, [loadPortfolio]);
 
+  // Handle Token Click
+  const handleTokenClick = useCallback((token: TokenData) => {
+    if (token.address) {
+      try {
+        sdk.actions.viewToken({
+          address: token.address,
+          chainId: 'eip155:8453' // Base Chain ID
+        });
+      } catch (e) {
+        console.error("Failed to view token:", e);
+      }
+    }
+  }, []);
+
   // Initialize Farcaster SDK
   useEffect(() => {
     const initSDK = async () => {
@@ -192,7 +206,11 @@ const App: React.FC = () => {
           <div className="bg-white shadow-sm">
             {tokens.length > 0 ? (
               tokens.map((token) => (
-                <TokenRow key={token.id} token={token} />
+                <TokenRow 
+                  key={token.id} 
+                  token={token} 
+                  onClick={handleTokenClick}
+                />
               ))
             ) : (
               <div className="p-10 text-center">

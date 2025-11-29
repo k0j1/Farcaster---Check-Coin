@@ -1,12 +1,14 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { TokenData } from '../types';
 import { Sparkline } from './Sparkline';
 
 interface TokenRowProps {
   token: TokenData;
+  onClick?: (token: TokenData) => void;
 }
 
-export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
+export const TokenRow: React.FC<TokenRowProps> = ({ token, onClick }) => {
   const [imageError, setImageError] = useState(false);
   const [isChartVisible, setIsChartVisible] = useState(false);
   const rowRef = useRef<HTMLDivElement>(null);
@@ -66,7 +68,11 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
   };
 
   return (
-    <div ref={rowRef} className="flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
+    <div 
+      ref={rowRef} 
+      onClick={() => onClick && onClick(token)}
+      className="flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer active:bg-gray-100"
+    >
       
       {/* Left: Icon & Symbol & Unit Price */}
       <div className="flex items-center space-x-3 w-1/3">
