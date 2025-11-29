@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import sdk, { type Context } from '@farcaster/frame-sdk';
+import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
 import { connectWallet, fetchPortfolioData } from './services/web3';

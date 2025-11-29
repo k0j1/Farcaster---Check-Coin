@@ -1,5 +1,3 @@
-import { TokenData } from './types';
-
 export const BASE_RPC_URL = "https://mainnet.base.org";
 
 // Supported Tokens on Base with Contract Addresses
