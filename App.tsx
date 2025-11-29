@@ -10,7 +10,7 @@ const App: React.FC = () => {
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [totalValue, setTotalValue] = useState(0);
-  const [loading, setLoading] = useState(true); // Start loading true
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // Data Fetching Logic
@@ -34,68 +34,94 @@ const App: React.FC = () => {
   }, []);
 
   // Helper to extract address from Farcaster Context
-  // Handles both camelCase and snake_case properties for robustness
   const getFarcasterAddress = useCallback((context: any): string | null => {
     if (!context || !context.user) return null;
     
     const { user } = context;
-    console.log("Farcaster User Context:", user);
-
     // Priority 1: Verified Addresses
-    // Check both camelCase (newer SDK) and snake_case (raw JSON)
     const verified = user.verifiedAddresses || user.verified_addresses;
     if (Array.isArray(verified) && verified.length > 0) {
       return verified[0];
     } 
-    
     // Priority 2: Custody Address
     const custody = user.custodyAddress || user.custody_address;
     if (custody) {
       return custody;
     }
-    
     return null;
   }, []);
+
+  // Manual Wallet Connection (Fallback per Farcaster Wallets Guide)
+  const connectWallet = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Use the injected Ethereum provider from the SDK
+      // This is the recommended way to get the active wallet in a Frame
+      const addresses = await sdk.wallet.ethProvider.request({ 
+        method: 'eth_requestAccounts' 
+      }) as string[];
+
+      if (addresses && addresses.length > 0) {
+        const address = addresses[0];
+        console.log("Wallet connected via provider:", address);
+        setAccount(address);
+        await loadPortfolio(address);
+      } else {
+        setError("No accounts found.");
+        setLoading(false);
+      }
+    } catch (e) {
+      console.error("Wallet connection failed:", e);
+      setError("Failed to connect wallet.");
+      setLoading(false);
+    }
+  }, [loadPortfolio]);
 
   // Initialize Farcaster SDK
   useEffect(() => {
     const initSDK = async () => {
+      if (isSDKLoaded) return;
+      
       try {
-        // OPTIMIZATION: Call ready() immediately to hide splash screen
-        // This prevents the "message port closed" error by signaling the client we are alive
+        setIsSDKLoaded(true);
+        // Call ready() immediately to optimize performance
         sdk.actions.ready();
         
-        // Fetch Context (Async)
-        // We allow a longer timeout (3s) now because the UI is already visible (loading spinner)
+        // Try to get Context for Auto-Login
         const timeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("SDK Context Timeout")), 3000)
+          setTimeout(() => reject(new Error("SDK Context Timeout")), 2000)
         );
 
-        console.log("Waiting for SDK context...");
-        const context: any = await Promise.race([sdk.context, timeout]);
-        console.log("Context received:", context);
+        try {
+            console.log("Attempting to fetch context...");
+            const context: any = await Promise.race([sdk.context, timeout]);
+            console.log("Context received:", context);
 
-        const fcAddress = getFarcasterAddress(context);
+            const fcAddress = getFarcasterAddress(context);
 
-        if (fcAddress) {
-          console.log("Found Farcaster user address:", fcAddress);
-          setAccount(fcAddress);
-          await loadPortfolio(fcAddress);
-        } else {
-          console.log("No Farcaster address found in context. Context:", context);
-          await loadPortfolio(null);
+            if (fcAddress) {
+              console.log("Found address in context:", fcAddress);
+              setAccount(fcAddress);
+              await loadPortfolio(fcAddress);
+            } else {
+              // Context loaded but no address found -> Load demo view
+              console.log("No address in context, waiting for manual connection.");
+              await loadPortfolio(null);
+            }
+        } catch (contextError) {
+            console.warn("Context fetch failed or timed out:", contextError);
+            // On context failure, we don't block the app. 
+            // We just load the "Not Connected" view and let the user click Connect.
+            await loadPortfolio(null);
         }
+
       } catch (e) {
-        console.warn("Error initializing SDK (or timeout):", e);
-        // Fallback to demo mode (no account) so the app still works
+        console.error("Critical SDK Error:", e);
         await loadPortfolio(null);
       }
     };
     
-    if (sdk && !isSDKLoaded) {
-      setIsSDKLoaded(true);
-      initSDK();
-    }
+    initSDK();
   }, [isSDKLoaded, getFarcasterAddress, loadPortfolio]);
   
   // Handle "Refresh"
@@ -105,16 +131,18 @@ const App: React.FC = () => {
       }
   };
 
-  // Filter tokens logic:
-  // If connected: Show only tokens with balance > 0
-  // If not connected: Show all supported tokens (as a market view/demo)
+  // Display logic
   const displayedTokens = account 
     ? tokens.filter(t => t.balance > 0) 
     : tokens;
 
   return (
     <div className="min-h-screen bg-coincheck-bg text-coincheck-text font-sans">
-      <Header totalBalance={totalValue} isConnected={!!account} />
+      <Header 
+        totalBalance={totalValue} 
+        isConnected={!!account} 
+        onConnect={connectWallet}
+      />
 
       <main className="max-w-md mx-auto pb-24">
         
@@ -150,38 +178,29 @@ const App: React.FC = () => {
               <div className="p-10 text-center">
                 <p className="text-gray-400 font-medium mb-1">No assets found</p>
                 <p className="text-xs text-gray-300">
-                  {account ? "We couldn't find any supported Base tokens in this wallet." : "Connect via Farcaster to view your assets."}
+                  {account ? "We couldn't find any supported Base tokens in this wallet." : "Connect wallet to view your assets."}
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Status / Footer */}
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg">
-          {!account ? (
-             <div className="text-center p-2">
-                 <p className="text-sm font-bold text-gray-500">Not Connected</p>
-                 <p className="text-xs text-gray-400 mt-1">
-                   Could not detect Farcaster wallet. 
-                   <br/>Open in Warpcast to view your balances.
-                 </p>
-             </div>
-          ) : (
+        {/* Footer for Connected Users (Refresh Button) */}
+        {account && (
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg">
              <div className="text-center">
                  <p className="text-xs text-gray-400 mb-2">
                    Connected: {account.slice(0,6)}...{account.slice(-4)} 
-                   <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[10px]">Farcaster</span>
                  </p>
                  <button 
                   onClick={handleRefresh}
-                  className="w-full py-3 bg-coincheck-green hover:bg-green-600 text-white rounded-lg font-bold shadow-md transition-all active:scale-95 text-sm"
+                  className="w-full py-3 bg-white border border-coincheck-green text-coincheck-green hover:bg-gray-50 rounded-lg font-bold shadow-sm transition-all active:scale-95 text-sm"
                 >
                   Refresh Balance
                 </button>
              </div>
-          )}
-        </div>
+          </div>
+        )}
 
       </main>
     </div>
