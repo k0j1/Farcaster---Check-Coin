@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
@@ -35,18 +34,26 @@ const App: React.FC = () => {
   }, []);
 
   // Helper to extract address from Farcaster Context
+  // Handles both camelCase and snake_case properties for robustness
   const getFarcasterAddress = useCallback((context: any): string | null => {
-    const user = context?.user as any;
-    if (!user) return null;
+    if (!context || !context.user) return null;
+    
+    const { user } = context;
+    console.log("Farcaster User Context:", user);
 
-    // Priority 1: Verified Addresses (connected wallet)
-    if (user.verifiedAddresses && user.verifiedAddresses.length > 0) {
-      return user.verifiedAddresses[0];
+    // Priority 1: Verified Addresses
+    // Check both camelCase (newer SDK) and snake_case (raw JSON)
+    const verified = user.verifiedAddresses || user.verified_addresses;
+    if (Array.isArray(verified) && verified.length > 0) {
+      return verified[0];
     } 
-    // Priority 2: Custody Address (farcaster recovery)
-    if (user.custodyAddress) {
-      return user.custodyAddress;
+    
+    // Priority 2: Custody Address
+    const custody = user.custodyAddress || user.custody_address;
+    if (custody) {
+      return custody;
     }
+    
     return null;
   }, []);
 
@@ -63,14 +70,15 @@ const App: React.FC = () => {
           loadPortfolio(fcAddress);
         } else {
           // If no address found in context, load generic data
-          console.log("No Farcaster address found in context");
+          console.log("No Farcaster address found in context. Context:", context);
           loadPortfolio(null);
         }
-
-        sdk.actions.ready();
       } catch (e) {
         console.error("Error initializing SDK:", e);
         loadPortfolio(null);
+      } finally {
+        // Always call ready() to ensure the app doesn't hang
+        sdk.actions.ready();
       }
     };
     
@@ -144,7 +152,10 @@ const App: React.FC = () => {
           {!account ? (
              <div className="text-center p-2">
                  <p className="text-sm font-bold text-gray-500">Not Connected</p>
-                 <p className="text-xs text-gray-400 mt-1">Please open this Miniapp in Farcaster</p>
+                 <p className="text-xs text-gray-400 mt-1">
+                   Could not detect Farcaster wallet. 
+                   <br/>Make sure you are opening this in Warpcast.
+                 </p>
              </div>
           ) : (
              <div className="text-center">
