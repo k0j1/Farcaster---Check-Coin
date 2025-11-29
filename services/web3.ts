@@ -1,9 +1,9 @@
-
 import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
 
 // ERC-20 balanceOf function selector: 0x70a08231
 const BALANCE_OF_ID = '0x70a08231';
+const BLOCKSCOUT_API_URL = "https://base.blockscout.com/api";
 
 export const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -65,7 +65,43 @@ async function getNativeBalance(userAddress: string): Promise<number> {
   return Number(BigInt(result)) / 1e18;
 }
 
-// Fetch Market Data from CoinGecko (Prices + Sparkline)
+// Fetch User's Token List from Blockscout
+async function fetchUserTokenList(address: string): Promise<any[]> {
+  try {
+    const response = await fetch(
+      `${BLOCKSCOUT_API_URL}?module=account&action=tokenlist&address=${address}`
+    );
+    const data = await response.json();
+    if (data.status === '1' && Array.isArray(data.result)) {
+      return data.result;
+    }
+    return [];
+  } catch (e) {
+    console.error("Blockscout API Error:", e);
+    return [];
+  }
+}
+
+// Fetch Dynamic Prices for Unknown Tokens from CoinGecko (Simple Price by Contract)
+async function fetchDynamicTokenPrices(addresses: string[]): Promise<Record<string, { usd: number, usd_24h_change: number }>> {
+  if (addresses.length === 0) return {};
+  
+  try {
+    // CoinGecko allows comma separated addresses. Limit to prevent URL overflow.
+    // Taking top 20 unknown tokens to be safe.
+    const subset = addresses.slice(0, 20).join(',');
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${subset}&vs_currencies=usd&include_24hr_change=true`
+    );
+    const data = await response.json();
+    return data;
+  } catch (e) {
+    console.error("CoinGecko Simple Price Error:", e);
+    return {};
+  }
+}
+
+// Fetch Market Data from CoinGecko (Prices + Sparkline) for Supported Tokens
 async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: number, change: number, sparkline: number[] }>> {
   try {
     const ids = SUPPORTED_TOKENS.map(t => t.cgId).join(',');
@@ -76,7 +112,7 @@ async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: numbe
     const data = await response.json();
     
     if (!Array.isArray(data)) {
-        console.error("CoinGecko API Error:", data);
+        console.error("CoinGecko Market API Error:", data);
         return {};
     }
 
@@ -96,40 +132,46 @@ async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: numbe
 }
 
 export const fetchPortfolioData = async (address: string | null): Promise<TokenData[]> => {
-  // 1. Fetch Market Data
+  // 1. Fetch Market Data for SUPPORTED tokens (High quality data)
   const marketData = await fetchCoinGeckoMarketData();
+  
+  // If no address, return standard Market View using only supported tokens
+  if (!address) {
+     return SUPPORTED_TOKENS.map(token => {
+        const info = marketData[token.cgId];
+        const currentPrice = (info && info.price != null) ? info.price : 0;
+        const change24h = (info && info.change != null) ? info.change : 0;
+        let history = (info && info.sparkline) ? info.sparkline.slice(-24) : [currentPrice, currentPrice];
 
-  // 2. Map through tokens and fetch balances (if address exists)
-  const promises = SUPPORTED_TOKENS.map(async (token) => {
+        return {
+          id: token.id,
+          symbol: token.symbol,
+          name: token.name,
+          price: currentPrice,
+          balance: 0,
+          change24h: change24h,
+          history: history,
+          imageUrl: (token as any).imageUrl
+        };
+     });
+  }
+
+  // 2. Fetch User's Raw Token List from Blockscout
+  const userTokensRaw = await fetchUserTokenList(address);
+  
+  // 3. Process Supported Tokens (using RPC for accurate balance)
+  const knownTokensPromises = SUPPORTED_TOKENS.map(async (token) => {
     let balance = 0;
-    
-    // Only fetch balance if we have an address
-    if (address) {
-      if (token.isNative) {
-        balance = await getNativeBalance(address);
-      } else if (token.address) {
-        balance = await getTokenBalance(token.address, address, token.decimals);
-      }
+    if (token.isNative) {
+      balance = await getNativeBalance(address);
+    } else if (token.address) {
+      balance = await getTokenBalance(token.address, address, token.decimals);
     }
-
-    // Get price info
+    
     const info = marketData[token.cgId];
-    
-    // Fallback logic with safe checks for null values
-    const currentPrice = (info && info.price != null) ? info.price : (token.id === 'usd-coin' ? 1.0 : 0);
+    const currentPrice = (info && info.price != null) ? info.price : 0;
     const change24h = (info && info.change != null) ? info.change : 0;
-    
-    // Process Chart Data
-    // CoinGecko returns 7 days of hourly data (~168 points).
-    // We want the last 24 hours (~24 points).
-    let history: number[] = [];
-    if (info && info.sparkline && info.sparkline.length > 0) {
-        // Take the last 24 points
-        history = info.sparkline.slice(-24);
-    } else {
-        // Flat line fallback
-        history = [currentPrice, currentPrice];
-    }
+    let history = (info && info.sparkline) ? info.sparkline.slice(-24) : [currentPrice, currentPrice];
 
     return {
       id: token.id,
@@ -139,9 +181,59 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
       balance: balance,
       change24h: change24h,
       history: history,
-      imageUrl: (token as any).imageUrl // Pass image URL
+      imageUrl: (token as any).imageUrl
     };
   });
+  
+  const knownTokens = await Promise.all(knownTokensPromises);
 
-  return Promise.all(promises);
+  // 4. Identify Unknown Tokens and Fetch Dynamic Prices
+  const unknownTokens: any[] = [];
+  const unknownAddresses: string[] = [];
+
+  for (const t of userTokensRaw) {
+    if (t.type !== "ERC-20") continue; // Skip NFTs if Blockscout returns them mixed
+    const contractAddr = t.contractAddress.toLowerCase();
+    
+    // Check if it's already in our supported list
+    const isKnown = SUPPORTED_TOKENS.some(st => st.address === contractAddr);
+    
+    // Check if it's actually held (balance > 0)
+    const balVal = Number(t.balance);
+    
+    if (!isKnown && balVal > 0) {
+       unknownTokens.push(t);
+       unknownAddresses.push(contractAddr);
+    }
+  }
+
+  const dynamicPrices = await fetchDynamicTokenPrices(unknownAddresses);
+
+  // 5. Construct Dynamic Tokens
+  const dynamicTokens: TokenData[] = unknownTokens.map((t): TokenData | null => {
+      const addr = t.contractAddress.toLowerCase();
+      const priceData = dynamicPrices[addr];
+      
+      // If CoinGecko doesn't have price, skip or return 0 price
+      if (!priceData) return null;
+
+      const decimals = Number(t.decimals || 18);
+      const balance = Number(t.balance) / Math.pow(10, decimals);
+      const price = priceData.usd || 0;
+      const change = priceData.usd_24h_change || 0;
+
+      return {
+          id: addr, // use address as ID for dynamic tokens
+          symbol: t.symbol || 'UNK',
+          name: t.name || 'Unknown Token',
+          price: price,
+          balance: balance,
+          change24h: change,
+          history: [price, price], // Flat line for dynamic tokens
+          imageUrl: undefined // No image available from this flow
+      };
+  }).filter((t): t is TokenData => t !== null);
+
+  // 6. Merge and Return
+  return [...knownTokens, ...dynamicTokens];
 };

@@ -2,7 +2,7 @@
 export const BASE_RPC_URL = "https://mainnet.base.org";
 
 // Supported Tokens on Base with Contract Addresses
-// Note: Limited by URL length for CoinGecko API (approx 30-40 tokens max in one batch safely)
+// Note: Addresses are normalized to lowercase for reliable matching
 export const SUPPORTED_TOKENS = [
   // --- Native & Wrapped ---
   {
@@ -30,7 +30,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'coinbase-wrapped-staked-eth',
     symbol: 'cbETH',
     name: 'Coinbase Wrapped Staked ETH',
-    address: '0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22',
+    address: '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22',
     decimals: 18,
     color: '#0052FF',
     imageUrl: 'https://assets.coingecko.com/coins/images/27008/small/cbeth.png'
@@ -42,7 +42,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'usd-coin',
     symbol: 'USDC',
     name: 'USD Coin',
-    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     decimals: 6,
     color: '#2775CA',
     imageUrl: 'https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png'
@@ -52,7 +52,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'tether',
     symbol: 'USDT',
     name: 'Tether USD',
-    address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2',
+    address: '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2',
     decimals: 6,
     color: '#26A17B',
     imageUrl: 'https://assets.coingecko.com/coins/images/325/small/Tether.png'
@@ -62,7 +62,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'dai',
     symbol: 'DAI',
     name: 'Dai',
-    address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
+    address: '0x50c5725949a6f0c72e6c4a641f24049a917db0cb',
     decimals: 18,
     color: '#F5AC37',
     imageUrl: 'https://assets.coingecko.com/coins/images/9956/small/Badge_Dai.png'
@@ -72,7 +72,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'euro-coin',
     symbol: 'EURC',
     name: 'EURC',
-    address: '0x60a3E35Cc302bFA443010C948EEbb6Ac2569Ac2C',
+    address: '0x60a3e35cc302bfa443010c948eebb6ac2569ac2c',
     decimals: 6,
     color: '#003399',
     imageUrl: 'https://assets.coingecko.com/coins/images/26127/small/EURC.png'
@@ -84,7 +84,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'aerodrome-finance',
     symbol: 'AERO',
     name: 'Aerodrome',
-    address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631',
+    address: '0x940181a94a35a4569e4529a3cdfb74e38fd98631',
     decimals: 18,
     color: '#4472C4',
     imageUrl: 'https://assets.coingecko.com/coins/images/35634/small/aerodrome.png'
@@ -94,7 +94,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'moonwell',
     symbol: 'WELL',
     name: 'Moonwell',
-    address: '0xA88594D404727625A9437C3f886C764269Ba633A',
+    address: '0xa88594d404727625a9437c3f886c764269ba633a',
     decimals: 18,
     color: '#E01E5A',
     imageUrl: 'https://assets.coingecko.com/coins/images/25732/small/well.png'
@@ -104,7 +104,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'seamless-protocol',
     symbol: 'SEAM',
     name: 'Seamless',
-    address: '0x1C7a460413dD4e964f96D8dFC56E7223cE88CD85',
+    address: '0x1c7a460413dd4e964f96d8dfc56e7223ce88cd85',
     decimals: 18,
     color: '#00C2FF',
     imageUrl: 'https://assets.coingecko.com/coins/images/33580/small/seamless.jpeg'
@@ -124,7 +124,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'echelon-prime',
     symbol: 'PRIME',
     name: 'Echelon Prime',
-    address: '0x111111111118CaD7653fCd3e817eF440d9372784',
+    address: '0x111111111118cad7653fcd3e817ef440d9372784',
     decimals: 18,
     color: '#FFFFFF',
     imageUrl: 'https://assets.coingecko.com/coins/images/29322/small/Prime.png'
@@ -136,7 +136,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'degen-base',
     symbol: 'DEGEN',
     name: 'Degen',
-    address: '0x4ed4E862860beD51a9570b96d8014711Ad0AA622',
+    address: '0x4ed4e862860bed51a9570b96d8014711ad0aa622',
     decimals: 18,
     color: '#7C3AED',
     imageUrl: 'https://assets.coingecko.com/coins/images/34515/small/degen.jpeg'
@@ -146,7 +146,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'based-brett',
     symbol: 'BRETT',
     name: 'Brett',
-    address: '0x532f27101965dd16442E59d40670FaF5eBB142E4',
+    address: '0x532f27101965dd16442e59d40670faf5ebb142e4',
     decimals: 18,
     color: '#2ecc71',
     imageUrl: 'https://assets.coingecko.com/coins/images/35565/small/brett.png'
@@ -156,7 +156,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'toshi',
     symbol: 'TOSHI',
     name: 'Toshi',
-    address: '0xAC1Bd2486aAf3B5C0fc3Fd868558b082a531B2B4',
+    address: '0xac1bd2486aaf3b5c0fc3fd868558b082a531b2b4',
     decimals: 18,
     color: '#0099FF',
     imageUrl: 'https://assets.coingecko.com/coins/images/32578/small/toshi.png'
@@ -166,7 +166,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'mog-coin',
     symbol: 'MOG',
     name: 'Mog Coin',
-    address: '0x2Da56AcB9Ea78330f947bD57C54119Debda7AF71',
+    address: '0x2da56acb9ea78330f947bd57c54119debda7af71',
     decimals: 18,
     color: '#888888',
     imageUrl: 'https://assets.coingecko.com/coins/images/31551/small/mog.png'
@@ -176,7 +176,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'keyboard-cat',
     symbol: 'KEYCAT',
     name: 'Keyboard Cat',
-    address: '0x9D903794125d21e543005A422D4F5B05527a4bF9',
+    address: '0x9d903794125d21e543005a422d4f5b05527a4bf9',
     decimals: 18,
     color: '#FFA500',
     imageUrl: 'https://assets.coingecko.com/coins/images/36585/small/keycat.jpg'
@@ -186,7 +186,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'mister-miggles',
     symbol: 'MIGGLES',
     name: 'Mister Miggles',
-    address: '0xB1a03Eda1034252964F15931b4d604Cdc6015a29',
+    address: '0xb1a03eda1034252964f15931b4d604cdc6015a29',
     decimals: 18,
     color: '#F4A460',
     imageUrl: 'https://assets.coingecko.com/coins/images/39097/small/miggles.jpg'
@@ -196,7 +196,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'basenji',
     symbol: 'BENJI',
     name: 'Basenji',
-    address: '0xBC45647eA894030a4E9801Ec03479739FA2485F0',
+    address: '0xbc45647ea894030a4e9801ec03479739fa2485f0',
     decimals: 18,
     color: '#8B4513',
     imageUrl: 'https://assets.coingecko.com/coins/images/36423/small/BENJI.png'
@@ -206,7 +206,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'higher',
     symbol: 'HIGHER',
     name: 'Higher',
-    address: '0x0578d8A44db98B23BF096A382e016e29a5Ce0E3e',
+    address: '0x0578d8a44db98b23bf096a382e016e29a5ce0e3e',
     decimals: 18,
     color: '#16a34a',
     imageUrl: 'https://assets.coingecko.com/coins/images/36528/small/higher.png'
@@ -216,7 +216,7 @@ export const SUPPORTED_TOKENS = [
     cgId: 'base-god',
     symbol: 'TYBG',
     name: 'Base God',
-    address: '0x0d97F261b1e88845184f678e2d1e7a98D9FD38dE',
+    address: '0x0d97f261b1e88845184f678e2d1e7a98d9fd38de',
     decimals: 18,
     color: '#4B0082',
     imageUrl: 'https://assets.coingecko.com/coins/images/34149/small/tybg.png'
