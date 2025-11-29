@@ -3,12 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- App Metadata -->
     <title>Base Portfolio</title>
-    <!-- Tailwindは簡単のためCDNのまま維持しますが、実運用ではPostCSS設定推奨 -->
+    <meta name="description" content="Track your Base assets with real-time charts.">
+    
+    <!-- Farcaster Frame v2 Meta Tags -->
+    <meta property="fc:frame" content="vNext" />
+    <meta property="fc:frame:image" content="https://placehold.co/600x400/2ecc71/ffffff/png?text=Base+Portfolio" />
+    <meta property="fc:frame:button:1" content="Open Portfolio" />
+    <meta property="fc:frame:button:1:action" content="link" />
+    <!-- Note: In production, set this target to your deployed URL -->
+    <meta property="fc:frame:button:1:target" content="https://github.com/YourUser/YourRepo" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="Base Portfolio" />
+    <meta property="og:description" content="Track your Base assets with real-time charts on Farcaster." />
+    <meta property="og:image" content="https://placehold.co/600x400/2ecc71/ffffff/png?text=Base+Portfolio" />
+
+    <!-- Web Manifest -->
+    <link rel="manifest" href="./manifest.json" />
+
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
@@ -31,6 +48,12 @@
         },
       }
     </script>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
     <style>
       body {
         background-color: #f4f5f7;
