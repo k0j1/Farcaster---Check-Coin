@@ -115,9 +115,9 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
     // Get price info
     const info = marketData[token.cgId];
     
-    // Fallback logic
-    const currentPrice = info ? info.price : (token.id === 'usd-coin' ? 1.0 : 0);
-    const change24h = info ? info.change : 0;
+    // Fallback logic with safe checks for null values
+    const currentPrice = (info && info.price != null) ? info.price : (token.id === 'usd-coin' ? 1.0 : 0);
+    const change24h = (info && info.change != null) ? info.change : 0;
     
     // Process Chart Data
     // CoinGecko returns 7 days of hourly data (~168 points).
@@ -138,7 +138,8 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
       price: currentPrice,
       balance: balance,
       change24h: change24h,
-      history: history
+      history: history,
+      imageUrl: (token as any).imageUrl // Pass image URL
     };
   });
 
