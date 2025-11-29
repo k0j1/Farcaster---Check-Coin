@@ -38,14 +38,17 @@ const App: React.FC = () => {
         // Try to get address from Farcaster Context
         let userAddress: string | null = null;
         
-        if (context?.user) {
+        // Cast user to any to access properties that might be missing in the current type definition
+        const user = context?.user as any;
+
+        if (user) {
           // Priority 1: Verified Addresses (usually their main wallet)
-          if (context.user.verifiedAddresses && context.user.verifiedAddresses.length > 0) {
-            userAddress = context.user.verifiedAddresses[0];
+          if (user.verifiedAddresses && user.verifiedAddresses.length > 0) {
+            userAddress = user.verifiedAddresses[0];
           } 
           // Priority 2: Custody Address (their Farcaster recovery address)
-          else if (context.user.custodyAddress) {
-            userAddress = context.user.custodyAddress;
+          else if (user.custodyAddress) {
+            userAddress = user.custodyAddress;
           }
         }
 
