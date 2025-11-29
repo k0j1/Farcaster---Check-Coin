@@ -28,8 +28,8 @@ jobs:
           # cache: 'npm' を削除（package-lock.jsonがない場合にエラーになるため）
 
       - name: Install dependencies
-        # npm ci は package-lock.json が必須なため、npm install に変更
-        run: npm install
+        # 依存関係の競合（Peer Dependency）を無視してインストール
+        run: npm install --legacy-peer-deps
 
       - name: Build
         run: npm run build
