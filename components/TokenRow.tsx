@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TokenData } from '../types';
 import { Sparkline } from './Sparkline';
@@ -36,7 +35,7 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
   return (
     <div className="flex items-center justify-between p-4 bg-white border-b border-gray-100 hover:bg-gray-50 transition-colors">
       
-      {/* Left: Icon & Name */}
+      {/* Left: Icon & Symbol & Unit Price */}
       <div className="flex items-center space-x-3 w-1/3">
         <div className="w-10 h-10 flex-shrink-0">
           {token.imageUrl && !imageError ? (
@@ -57,7 +56,8 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
         </div>
         <div>
           <div className="font-bold text-gray-800">{token.symbol}</div>
-          <div className="text-xs text-gray-400">{token.name}</div>
+          {/* Display Unit Price under the name */}
+          <div className="text-xs text-gray-500 font-medium">{formatPrice(token.price)}</div>
         </div>
       </div>
 
@@ -66,9 +66,15 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
         <Sparkline data={token.history} color={color} width={60} height={30} />
       </div>
 
-      {/* Right: Price & Balance */}
+      {/* Right: Holding Value & Change */}
       <div className="w-1/3 text-right">
-        <div className="font-mono font-medium text-gray-900">{formatPrice(token.price)}</div>
+        <div className="font-mono font-medium text-gray-900">
+            {/* Show Holding Value if balance exists, else show Unit Price (for demo view) */}
+            {token.balance > 0 
+                ? formatPrice(token.price * token.balance) 
+                : formatPrice(token.price)
+            }
+        </div>
         <div className={`text-xs font-medium ${isPositive ? 'text-coincheck-green' : 'text-coincheck-red'}`}>
           {isPositive ? '+' : ''}{changeValue.toFixed(2)}%
         </div>

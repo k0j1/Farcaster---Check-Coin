@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
@@ -132,9 +132,16 @@ const App: React.FC = () => {
   };
 
   // Display logic
-  const displayedTokens = account 
-    ? tokens.filter(t => t.balance > 0) 
-    : tokens;
+  const displayedTokens = useMemo(() => {
+    if (account) {
+      // Connected: Filter > 0 and Sort by Holding Value (DESC)
+      return tokens
+        .filter(t => t.balance > 0)
+        .sort((a, b) => (b.price * b.balance) - (a.price * a.balance));
+    }
+    // Not Connected: Show default list (no sort)
+    return tokens;
+  }, [account, tokens]);
 
   return (
     <div className="min-h-screen bg-coincheck-bg text-coincheck-text font-sans">
@@ -148,9 +155,9 @@ const App: React.FC = () => {
         
         {/* Token List Header */}
         <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between text-xs text-gray-500 uppercase font-semibold">
-          <span className="w-1/3">Asset</span>
+          <span className="w-1/3">Asset / Price</span>
           <span className="w-1/4 text-center">24H Chart</span>
-          <span className="w-1/3 text-right">Price / Holdings</span>
+          <span className="w-1/3 text-right">Value</span>
         </div>
 
         {/* Loading State */}
