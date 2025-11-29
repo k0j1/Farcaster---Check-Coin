@@ -7,15 +7,17 @@ import { TokenData } from './types';
 
 const App: React.FC = () => {
   const [account, setAccount] = useState<string | null>(null);
+  const [connectionType, setConnectionType] = useState<'farcaster' | 'external' | null>(null);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(false);
 
   // Data Fetching Logic
-  const loadData = useCallback(async (address: string | null) => {
+  const loadPortfolio = useCallback(async (address: string | null) => {
     setLoading(true);
     try {
+      console.log("Loading portfolio for:", address);
       const data = await fetchPortfolioData(address);
       setTokens(data);
       
@@ -29,57 +31,82 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Initialize Farcaster SDK and get Context
+  // Helper to extract address from Farcaster Context
+  const getFarcasterAddress = useCallback((context: any): string | null => {
+    const user = context?.user as any;
+    if (!user) return null;
+
+    // Priority 1: Verified Addresses (connected wallet)
+    if (user.verifiedAddresses && user.verifiedAddresses.length > 0) {
+      return user.verifiedAddresses[0];
+    } 
+    // Priority 2: Custody Address (farcaster recovery)
+    if (user.custodyAddress) {
+      return user.custodyAddress;
+    }
+    return null;
+  }, []);
+
+  // Initialize Farcaster SDK
   useEffect(() => {
-    const load = async () => {
+    const initSDK = async () => {
       try {
         const context = await sdk.context;
-        
-        // Try to get address from Farcaster Context
-        let userAddress: string | null = null;
-        
-        // Cast user to any to access properties that might be missing in the current type definition
-        const user = context?.user as any;
+        const fcAddress = getFarcasterAddress(context);
 
-        if (user) {
-          // Priority 1: Verified Addresses (usually their main wallet)
-          if (user.verifiedAddresses && user.verifiedAddresses.length > 0) {
-            userAddress = user.verifiedAddresses[0];
-          } 
-          // Priority 2: Custody Address (their Farcaster recovery address)
-          else if (user.custodyAddress) {
-            userAddress = user.custodyAddress;
-          }
-        }
-
-        if (userAddress) {
-          console.log("Found Farcaster user address:", userAddress);
-          setAccount(userAddress);
-          loadData(userAddress);
+        if (fcAddress) {
+          console.log("Found Farcaster user address:", fcAddress);
+          setAccount(fcAddress);
+          setConnectionType('farcaster');
+          loadPortfolio(fcAddress);
         } else {
-          // If no address found in context, just load generic data
-          loadData(null);
+          // If no address found in context, load generic data
+          loadPortfolio(null);
         }
 
         sdk.actions.ready();
       } catch (e) {
         console.error("Error initializing SDK:", e);
-        loadData(null);
+        loadPortfolio(null);
       }
     };
     
     if (sdk && !isSDKLoaded) {
       setIsSDKLoaded(true);
-      load();
+      initSDK();
     }
-  }, [isSDKLoaded, loadData]);
+  }, [isSDKLoaded, getFarcasterAddress, loadPortfolio]);
   
-  // Connect Metamask handler (Override Farcaster address)
+  // Handle "Connect Wallet" button click
+  // PRIORITIZE: Farcaster Context -> Then External Wallet
   const handleConnect = async () => {
-    const address = await connectWallet();
-    if (address) {
-      setAccount(address);
-      loadData(address);
+    setLoading(true);
+    try {
+      // 1. Try to get Farcaster Context again (in case it wasn't ready initially)
+      const context = await sdk.context;
+      const fcAddress = getFarcasterAddress(context);
+
+      if (fcAddress) {
+        console.log("Connected via Farcaster Context:", fcAddress);
+        setAccount(fcAddress);
+        setConnectionType('farcaster');
+        loadPortfolio(fcAddress);
+        return; // Stop here, do not open MetaMask
+      }
+
+      // 2. If no Farcaster address, try External Wallet (MetaMask)
+      console.log("No Farcaster address found, trying external wallet...");
+      const address = await connectWallet();
+      if (address) {
+        console.log("Connected via External Wallet:", address);
+        setAccount(address);
+        setConnectionType('external');
+        loadPortfolio(address);
+      }
+    } catch (e) {
+      console.error("Connection failed:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -121,7 +148,7 @@ const App: React.FC = () => {
               <div className="p-10 text-center">
                 <p className="text-gray-400 font-medium mb-1">No assets found</p>
                 <p className="text-xs text-gray-300">
-                  We scanned for popular Base tokens but couldn't find any in your wallet.
+                  {account ? "We couldn't find any supported Base tokens in this wallet." : "Connect wallet to view your assets."}
                 </p>
               </div>
             )}
@@ -139,10 +166,13 @@ const App: React.FC = () => {
             </button>
           ) : (
              <div className="text-center">
-                 <p className="text-xs text-gray-400 mb-2">Connected: {account.slice(0,6)}...{account.slice(-4)}</p>
+                 <p className="text-xs text-gray-400 mb-2">
+                   Connected: {account.slice(0,6)}...{account.slice(-4)} 
+                   {connectionType === 'farcaster' && <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[10px]">Farcaster</span>}
+                 </p>
                  <div className="flex space-x-2">
                    <button 
-                    onClick={() => loadData(account)}
+                    onClick={() => loadPortfolio(account)}
                     className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold border border-gray-300 text-sm active:bg-gray-200"
                   >
                     Refresh
