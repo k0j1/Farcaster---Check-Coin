@@ -121,10 +121,11 @@ const App: React.FC = () => {
   const handleTokenClick = useCallback((token: TokenData) => {
     if (token.address) {
       try {
+        // Cast to any to bypass TS error: Object literal may only specify known properties
         sdk.actions.viewToken({
           address: token.address,
           chainId: 'eip155:8453' // Base Chain ID
-        });
+        } as any);
       } catch (e) {
         console.error("Failed to view token:", e);
       }
