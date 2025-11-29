@@ -16,6 +16,7 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
   
   // Format price
   const formatPrice = (price: number) => {
+    if (price === 0) return '$0.00';
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -26,6 +27,12 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
 
   // Format balance
   const formatBalance = (balance: number) => {
+    if (balance > 0 && balance < 0.0001) {
+       return new Intl.NumberFormat('en-US', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 8
+       }).format(balance);
+    }
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 4
@@ -55,7 +62,7 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
           )}
         </div>
         <div>
-          <div className="font-bold text-gray-800">{token.symbol}</div>
+          <div className="font-bold text-gray-800 break-words line-clamp-1" title={token.symbol}>{token.symbol}</div>
           {/* Display Unit Price under the name */}
           <div className="text-xs text-gray-500 font-medium">{formatPrice(token.price)}</div>
         </div>
@@ -80,7 +87,7 @@ export const TokenRow: React.FC<TokenRowProps> = ({ token }) => {
         </div>
         {token.balance > 0 && (
           <div className="text-xs text-gray-400 mt-1">
-            Vol: {formatBalance(token.balance)}
+            Bal: {formatBalance(token.balance)}
           </div>
         )}
       </div>

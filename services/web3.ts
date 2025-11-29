@@ -210,21 +210,20 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
   const dynamicPrices = await fetchDynamicTokenPrices(unknownAddresses);
 
   // 5. Construct Dynamic Tokens
-  const dynamicTokens: TokenData[] = unknownTokens.map((t): TokenData | null => {
+  const dynamicTokens: TokenData[] = unknownTokens.map((t): TokenData => {
       const addr = t.contractAddress.toLowerCase();
       const priceData = dynamicPrices[addr];
       
-      // If CoinGecko doesn't have price, skip or return 0 price
-      if (!priceData) return null;
-
       const decimals = Number(t.decimals || 18);
       const balance = Number(t.balance) / Math.pow(10, decimals);
-      const price = priceData.usd || 0;
-      const change = priceData.usd_24h_change || 0;
+      
+      // Even if no price data found, show the token with 0 price
+      const price = priceData?.usd || 0;
+      const change = priceData?.usd_24h_change || 0;
 
       return {
           id: addr, // use address as ID for dynamic tokens
-          symbol: t.symbol || 'UNK',
+          symbol: t.symbol || truncateAddress(t.contractAddress), // Fallback symbol
           name: t.name || 'Unknown Token',
           price: price,
           balance: balance,
@@ -232,7 +231,7 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
           history: [price, price], // Flat line for dynamic tokens
           imageUrl: undefined // No image available from this flow
       };
-  }).filter((t): t is TokenData => t !== null);
+  });
 
   // 6. Merge and Return
   return [...knownTokens, ...dynamicTokens];
