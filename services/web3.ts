@@ -101,6 +101,40 @@ async function fetchDynamicTokenPrices(addresses: string[]): Promise<Record<stri
   }
 }
 
+// Fetch Prices from DexScreener (Fallback for tokens not on CoinGecko)
+async function fetchDexScreenerPrices(addresses: string[]): Promise<Record<string, { usd: number, usd_24h_change: number }>> {
+  if (addresses.length === 0) return {};
+
+  try {
+    // DexScreener supports up to 30 addresses
+    const subset = addresses.slice(0, 30).join(',');
+    const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${subset}`);
+    const data = await response.json();
+
+    const priceMap: Record<string, { usd: number, usd_24h_change: number }> = {};
+
+    if (data.pairs && Array.isArray(data.pairs)) {
+      data.pairs.forEach((pair: any) => {
+         if (pair.baseToken && pair.baseToken.address) {
+            const addr = pair.baseToken.address.toLowerCase();
+            // Use the pair with highest liquidity (DexScreener usually sorts by liquidity/relevance)
+            // Only set if not already set (or could compare liquidity)
+            if (!priceMap[addr]) {
+               priceMap[addr] = {
+                 usd: Number(pair.priceUsd) || 0,
+                 usd_24h_change: Number(pair.priceChange?.h24) || 0
+               };
+            }
+         }
+      });
+    }
+    return priceMap;
+  } catch (e) {
+    console.error("DexScreener API Error:", e);
+    return {};
+  }
+}
+
 // Fetch Market Data from CoinGecko (Prices + Sparkline) for Supported Tokens
 async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: number, change: number, sparkline: number[] }>> {
   try {
@@ -187,7 +221,7 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
   
   const knownTokens = await Promise.all(knownTokensPromises);
 
-  // 4. Identify Unknown Tokens and Fetch Dynamic Prices
+  // 4. Identify Unknown Tokens
   const unknownTokens: any[] = [];
   const unknownAddresses: string[] = [];
 
@@ -207,9 +241,22 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
     }
   }
 
-  const dynamicPrices = await fetchDynamicTokenPrices(unknownAddresses);
+  // 5. Fetch Dynamic Prices: Try CoinGecko First
+  let dynamicPrices = await fetchDynamicTokenPrices(unknownAddresses);
 
-  // 5. Construct Dynamic Tokens
+  // 6. Find tokens that missed CoinGecko prices and try DexScreener
+  const missingPriceAddresses = unknownAddresses.filter(addr => {
+     return !dynamicPrices[addr] || dynamicPrices[addr].usd === 0;
+  });
+
+  if (missingPriceAddresses.length > 0) {
+      console.log(`Fetching ${missingPriceAddresses.length} tokens from DexScreener...`);
+      const dexPrices = await fetchDexScreenerPrices(missingPriceAddresses);
+      // Merge results
+      dynamicPrices = { ...dynamicPrices, ...dexPrices };
+  }
+
+  // 7. Construct Dynamic Tokens
   const dynamicTokens: TokenData[] = unknownTokens.map((t): TokenData => {
       const addr = t.contractAddress.toLowerCase();
       const priceData = dynamicPrices[addr];
@@ -233,6 +280,6 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
       };
   });
 
-  // 6. Merge and Return
+  // 8. Merge and Return
   return [...knownTokens, ...dynamicTokens];
 };
