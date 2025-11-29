@@ -1,5 +1,5 @@
 
-import { SUPPORTED_TOKENS, CHART_POINTS, BASE_RPC_URL } from '../constants';
+import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
 
 // ERC-20 balanceOf function selector: 0x70a08231
@@ -65,56 +65,39 @@ async function getNativeBalance(userAddress: string): Promise<number> {
   return Number(BigInt(result)) / 1e18;
 }
 
-// Fetch Prices from CoinGecko
-async function fetchPrices(): Promise<Record<string, { price: number, change: number }>> {
+// Fetch Market Data from CoinGecko (Prices + Sparkline)
+async function fetchCoinGeckoMarketData(): Promise<Record<string, { price: number, change: number, sparkline: number[] }>> {
   try {
     const ids = SUPPORTED_TOKENS.map(t => t.cgId).join(',');
+    // sparkline=true returns 7d hourly data
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_24hr_change=true`
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true`
     );
     const data = await response.json();
     
-    // Normalize data structure
-    const prices: Record<string, { price: number, change: number }> = {};
-    SUPPORTED_TOKENS.forEach(token => {
-      const cgData = data[token.cgId];
-      if (cgData) {
-        prices[token.id] = {
-          price: cgData.usd,
-          change: cgData.usd_24h_change
-        };
-      }
+    if (!Array.isArray(data)) {
+        console.error("CoinGecko API Error:", data);
+        return {};
+    }
+
+    const marketData: Record<string, { price: number, change: number, sparkline: number[] }> = {};
+    data.forEach((coin: any) => {
+      marketData[coin.id] = {
+        price: coin.current_price,
+        change: coin.price_change_percentage_24h,
+        sparkline: coin.sparkline_in_7d?.price || []
+      };
     });
-    return prices;
+    return marketData;
   } catch (e) {
-    console.error("Failed to fetch prices:", e);
-    // Return empty object, logic below will handle fallbacks
+    console.error("Failed to fetch market data:", e);
     return {};
   }
 }
 
-// Generate realistic chart data based on actual 24h change
-function generateTrendChart(startPrice: number, endPrice: number, points: number, volatility: number = 0.02): number[] {
-  const history: number[] = [startPrice];
-  let current = startPrice;
-  const stepSize = (endPrice - startPrice) / points;
-
-  for (let i = 1; i < points; i++) {
-    // Add trend component + random noise
-    // We want the final point to be close to endPrice, but with some randomness path
-    const trend = stepSize;
-    const noise = (Math.random() - 0.5) * (startPrice * volatility);
-    current += trend + noise;
-    history.push(current);
-  }
-  // Force the last point to be the current price
-  history[history.length - 1] = endPrice;
-  return history;
-}
-
 export const fetchPortfolioData = async (address: string | null): Promise<TokenData[]> => {
-  // 1. Fetch Prices
-  const priceData = await fetchPrices();
+  // 1. Fetch Market Data
+  const marketData = await fetchCoinGeckoMarketData();
 
   // 2. Map through tokens and fetch balances (if address exists)
   const promises = SUPPORTED_TOKENS.map(async (token) => {
@@ -129,21 +112,24 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
       }
     }
 
-    // Get price info or fallback to some defaults if API fails
-    const info = priceData[token.id];
-    // Default prices if API fails (fallback to avoid broken UI)
+    // Get price info
+    const info = marketData[token.cgId];
+    
+    // Fallback logic
     const currentPrice = info ? info.price : (token.id === 'usd-coin' ? 1.0 : 0);
     const change24h = info ? info.change : 0;
-
-    // Calculate start price to generate chart
-    // current = start * (1 + change/100)  =>  start = current / (1 + change/100)
-    let startPrice = currentPrice;
-    if (change24h !== 0) {
-        startPrice = currentPrice / (1 + (change24h / 100));
-    }
     
-    // Generate simulated chart based on real start/end points
-    const history = generateTrendChart(startPrice, currentPrice, CHART_POINTS);
+    // Process Chart Data
+    // CoinGecko returns 7 days of hourly data (~168 points).
+    // We want the last 24 hours (~24 points).
+    let history: number[] = [];
+    if (info && info.sparkline && info.sparkline.length > 0) {
+        // Take the last 24 points
+        history = info.sparkline.slice(-24);
+    } else {
+        // Flat line fallback
+        history = [currentPrice, currentPrice];
+    }
 
     return {
       id: token.id,

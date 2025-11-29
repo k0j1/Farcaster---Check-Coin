@@ -61,7 +61,14 @@ const App: React.FC = () => {
   useEffect(() => {
     const initSDK = async () => {
       try {
-        const context = await sdk.context;
+        // Add a timeout to prevent hanging if the SDK doesn't respond
+        // This fixes "The message port closed before a response was received" causing infinite loading
+        const timeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("SDK Context Timeout")), 1000)
+        );
+
+        // Race the context fetch against the timeout
+        const context: any = await Promise.race([sdk.context, timeout]);
         const fcAddress = getFarcasterAddress(context);
 
         if (fcAddress) {
@@ -69,12 +76,12 @@ const App: React.FC = () => {
           setAccount(fcAddress);
           loadPortfolio(fcAddress);
         } else {
-          // If no address found in context, load generic data
           console.log("No Farcaster address found in context. Context:", context);
           loadPortfolio(null);
         }
       } catch (e) {
-        console.error("Error initializing SDK:", e);
+        console.warn("Error initializing SDK (or timeout):", e);
+        // Fallback to demo mode (no account) so the app still works
         loadPortfolio(null);
       } finally {
         // Always call ready() to ensure the app doesn't hang
