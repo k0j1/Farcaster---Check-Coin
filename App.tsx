@@ -1,21 +1,23 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
-import { connectWallet, fetchPortfolioData } from './services/web3';
+import { fetchPortfolioData } from './services/web3';
 import { TokenData } from './types';
 
 const App: React.FC = () => {
   const [account, setAccount] = useState<string | null>(null);
-  const [connectionType, setConnectionType] = useState<'farcaster' | 'external' | null>(null);
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Data Fetching Logic
   const loadPortfolio = useCallback(async (address: string | null) => {
     setLoading(true);
+    setError(null);
     try {
       console.log("Loading portfolio for:", address);
       const data = await fetchPortfolioData(address);
@@ -26,6 +28,7 @@ const App: React.FC = () => {
       setTotalValue(total);
     } catch (e) {
       console.error("Failed to load portfolio", e);
+      setError("Failed to load data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +60,10 @@ const App: React.FC = () => {
         if (fcAddress) {
           console.log("Found Farcaster user address:", fcAddress);
           setAccount(fcAddress);
-          setConnectionType('farcaster');
           loadPortfolio(fcAddress);
         } else {
           // If no address found in context, load generic data
+          console.log("No Farcaster address found in context");
           loadPortfolio(null);
         }
 
@@ -77,37 +80,11 @@ const App: React.FC = () => {
     }
   }, [isSDKLoaded, getFarcasterAddress, loadPortfolio]);
   
-  // Handle "Connect Wallet" button click
-  // PRIORITIZE: Farcaster Context -> Then External Wallet
-  const handleConnect = async () => {
-    setLoading(true);
-    try {
-      // 1. Try to get Farcaster Context again (in case it wasn't ready initially)
-      const context = await sdk.context;
-      const fcAddress = getFarcasterAddress(context);
-
-      if (fcAddress) {
-        console.log("Connected via Farcaster Context:", fcAddress);
-        setAccount(fcAddress);
-        setConnectionType('farcaster');
-        loadPortfolio(fcAddress);
-        return; // Stop here, do not open MetaMask
+  // Handle "Refresh"
+  const handleRefresh = () => {
+      if (account) {
+          loadPortfolio(account);
       }
-
-      // 2. If no Farcaster address, try External Wallet (MetaMask)
-      console.log("No Farcaster address found, trying external wallet...");
-      const address = await connectWallet();
-      if (address) {
-        console.log("Connected via External Wallet:", address);
-        setAccount(address);
-        setConnectionType('external');
-        loadPortfolio(address);
-      }
-    } catch (e) {
-      console.error("Connection failed:", e);
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Filter tokens logic:
@@ -137,8 +114,15 @@ const App: React.FC = () => {
           </div>
         )}
 
+        {/* Error State */}
+        {error && (
+            <div className="p-4 text-center text-red-500 text-sm">
+                {error}
+            </div>
+        )}
+
         {/* Token List */}
-        {!loading && (
+        {!loading && !error && (
           <div className="bg-white shadow-sm">
             {displayedTokens.length > 0 ? (
               displayedTokens.map((token) => (
@@ -148,43 +132,32 @@ const App: React.FC = () => {
               <div className="p-10 text-center">
                 <p className="text-gray-400 font-medium mb-1">No assets found</p>
                 <p className="text-xs text-gray-300">
-                  {account ? "We couldn't find any supported Base tokens in this wallet." : "Connect wallet to view your assets."}
+                  {account ? "We couldn't find any supported Base tokens in this wallet." : "Connect via Farcaster to view your assets."}
                 </p>
               </div>
             )}
           </div>
         )}
 
-        {/* Action Area */}
+        {/* Status / Footer */}
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg">
           {!account ? (
-            <button 
-              onClick={handleConnect}
-              className="w-full py-3.5 bg-coincheck-green hover:bg-green-600 text-white rounded-lg font-bold shadow-md transition-all active:scale-95 text-sm"
-            >
-              Connect Wallet
-            </button>
+             <div className="text-center p-2">
+                 <p className="text-sm font-bold text-gray-500">Not Connected</p>
+                 <p className="text-xs text-gray-400 mt-1">Please open this Miniapp in Farcaster</p>
+             </div>
           ) : (
              <div className="text-center">
                  <p className="text-xs text-gray-400 mb-2">
                    Connected: {account.slice(0,6)}...{account.slice(-4)} 
-                   {connectionType === 'farcaster' && <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[10px]">Farcaster</span>}
+                   <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded text-[10px]">Farcaster</span>
                  </p>
-                 <div className="flex space-x-2">
-                   <button 
-                    onClick={() => loadPortfolio(account)}
-                    className="flex-1 py-3 bg-gray-100 text-gray-600 rounded-lg font-bold border border-gray-300 text-sm active:bg-gray-200"
-                  >
-                    Refresh
-                  </button>
-                  {/* Allow connecting a different wallet even if logged in via Farcaster */}
-                  <button 
-                    onClick={handleConnect}
-                    className="flex-1 py-3 bg-white text-coincheck-green border border-coincheck-green rounded-lg font-bold text-sm active:bg-gray-50"
-                  >
-                    Switch Wallet
-                  </button>
-                 </div>
+                 <button 
+                  onClick={handleRefresh}
+                  className="w-full py-3 bg-coincheck-green hover:bg-green-600 text-white rounded-lg font-bold shadow-md transition-all active:scale-95 text-sm"
+                >
+                  Refresh Balance
+                </button>
              </div>
           )}
         </div>

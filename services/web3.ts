@@ -1,21 +1,9 @@
+
 import { SUPPORTED_TOKENS, CHART_POINTS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
 
 // ERC-20 balanceOf function selector: 0x70a08231
 const BALANCE_OF_ID = '0x70a08231';
-
-export const connectWallet = async (): Promise<string | null> => {
-  if (!window.ethereum) {
-    return null;
-  }
-  try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    return accounts && accounts.length > 0 ? accounts[0] : null;
-  } catch (error) {
-    console.error("User rejected connection", error);
-    return null;
-  }
-};
 
 export const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -35,6 +23,10 @@ async function jsonRpcCall(method: string, params: any[]) {
       }),
     });
     const data = await response.json();
+    if (data.error) {
+        console.error(`RPC Error Body [${method}]:`, data.error);
+        return null;
+    }
     return data.result;
   } catch (e) {
     console.error(`RPC Error [${method}]:`, e);
@@ -44,8 +36,9 @@ async function jsonRpcCall(method: string, params: any[]) {
 
 // Fetch Token Balance via RPC
 async function getTokenBalance(tokenAddress: string, userAddress: string, decimals: number): Promise<number> {
-  // Pad address to 32 bytes (64 chars)
-  const paddedAddress = userAddress.replace('0x', '').padStart(64, '0');
+  // Normalize address: remove 0x, lowercase, pad to 64 chars (32 bytes)
+  const cleanAddress = userAddress.toLowerCase().replace(/^0x/, '');
+  const paddedAddress = cleanAddress.padStart(64, '0');
   const data = BALANCE_OF_ID + paddedAddress;
 
   const result = await jsonRpcCall('eth_call', [{
@@ -55,9 +48,14 @@ async function getTokenBalance(tokenAddress: string, userAddress: string, decima
 
   if (!result || result === '0x') return 0;
   
-  const hexValue = result;
-  const value = BigInt(hexValue);
-  return Number(value) / Math.pow(10, decimals);
+  try {
+      const hexValue = result;
+      const value = BigInt(hexValue);
+      return Number(value) / Math.pow(10, decimals);
+  } catch (e) {
+      console.error(`Error parsing balance for ${tokenAddress}:`, e);
+      return 0;
+  }
 }
 
 // Fetch Native ETH Balance
@@ -139,7 +137,10 @@ export const fetchPortfolioData = async (address: string | null): Promise<TokenD
 
     // Calculate start price to generate chart
     // current = start * (1 + change/100)  =>  start = current / (1 + change/100)
-    const startPrice = currentPrice / (1 + (change24h / 100));
+    let startPrice = currentPrice;
+    if (change24h !== 0) {
+        startPrice = currentPrice / (1 + (change24h / 100));
+    }
     
     // Generate simulated chart based on real start/end points
     const history = generateTrendChart(startPrice, currentPrice, CHART_POINTS);
