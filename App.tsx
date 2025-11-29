@@ -10,7 +10,7 @@ const App: React.FC = () => {
   const [isSDKLoaded, setIsSDKLoaded] = useState(false);
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [totalValue, setTotalValue] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start loading true
   const [error, setError] = useState<string | null>(null);
 
   // Data Fetching Logic
@@ -61,31 +61,34 @@ const App: React.FC = () => {
   useEffect(() => {
     const initSDK = async () => {
       try {
-        // Add a timeout to prevent hanging if the SDK doesn't respond
-        // This fixes "The message port closed before a response was received" causing infinite loading
+        // OPTIMIZATION: Call ready() immediately to hide splash screen
+        // This prevents the "message port closed" error by signaling the client we are alive
+        sdk.actions.ready();
+        
+        // Fetch Context (Async)
+        // We allow a longer timeout (3s) now because the UI is already visible (loading spinner)
         const timeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("SDK Context Timeout")), 1000)
+          setTimeout(() => reject(new Error("SDK Context Timeout")), 3000)
         );
 
-        // Race the context fetch against the timeout
+        console.log("Waiting for SDK context...");
         const context: any = await Promise.race([sdk.context, timeout]);
+        console.log("Context received:", context);
+
         const fcAddress = getFarcasterAddress(context);
 
         if (fcAddress) {
           console.log("Found Farcaster user address:", fcAddress);
           setAccount(fcAddress);
-          loadPortfolio(fcAddress);
+          await loadPortfolio(fcAddress);
         } else {
           console.log("No Farcaster address found in context. Context:", context);
-          loadPortfolio(null);
+          await loadPortfolio(null);
         }
       } catch (e) {
         console.warn("Error initializing SDK (or timeout):", e);
         // Fallback to demo mode (no account) so the app still works
-        loadPortfolio(null);
-      } finally {
-        // Always call ready() to ensure the app doesn't hang
-        sdk.actions.ready();
+        await loadPortfolio(null);
       }
     };
     
@@ -161,7 +164,7 @@ const App: React.FC = () => {
                  <p className="text-sm font-bold text-gray-500">Not Connected</p>
                  <p className="text-xs text-gray-400 mt-1">
                    Could not detect Farcaster wallet. 
-                   <br/>Make sure you are opening this in Warpcast.
+                   <br/>Open in Warpcast to view your balances.
                  </p>
              </div>
           ) : (
