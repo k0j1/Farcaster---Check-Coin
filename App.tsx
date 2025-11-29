@@ -83,6 +83,13 @@ const App: React.FC = () => {
     }
   };
 
+  // Filter tokens logic:
+  // If connected: Show only tokens with balance > 0
+  // If not connected: Show all supported tokens (as a market view/demo)
+  const displayedTokens = account 
+    ? tokens.filter(t => t.balance > 0) 
+    : tokens;
+
   return (
     <div className="min-h-screen bg-coincheck-bg text-coincheck-text font-sans">
       <Header totalBalance={totalValue} isConnected={!!account} />
@@ -106,9 +113,18 @@ const App: React.FC = () => {
         {/* Token List */}
         {!loading && (
           <div className="bg-white shadow-sm">
-            {tokens.map((token) => (
-              <TokenRow key={token.id} token={token} />
-            ))}
+            {displayedTokens.length > 0 ? (
+              displayedTokens.map((token) => (
+                <TokenRow key={token.id} token={token} />
+              ))
+            ) : (
+              <div className="p-10 text-center">
+                <p className="text-gray-400 font-medium mb-1">No assets found</p>
+                <p className="text-xs text-gray-300">
+                  We scanned for popular Base tokens but couldn't find any in your wallet.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
