@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
-import { fetchInitialUserAssets, fetchTokenPricesForList, fetchSupportedCharts } from './services/web3';
+import { fetchInitialUserAssets, fetchTokenPricesForList, fetchExtendedCharts } from './services/web3';
 import { TokenData } from './types';
 
 const App: React.FC = () => {
@@ -18,12 +18,15 @@ const App: React.FC = () => {
   const loadPortfolio = useCallback(async (address: string | null) => {
     setLoading(true);
     setError(null);
+    let currentList: TokenData[] = [];
+
     try {
       console.log("Stage 1: Loading initial assets for:", address);
       
       // Stage 1: Fast Load - Balances Only (Prices = 0)
       const initialTokens = await fetchInitialUserAssets(address);
       setTokens(initialTokens);
+      currentList = initialTokens;
       setLoading(false); // Show the list immediately
 
       // Stage 2: Load Prices & Sort
@@ -39,6 +42,7 @@ const App: React.FC = () => {
           });
 
           setTokens(sortedTokens);
+          currentList = sortedTokens; // Update current list for next stage
           
           // Update Total Value
           const total = sortedTokens.reduce((acc, token) => acc + (token.price * token.balance), 0);
@@ -52,7 +56,8 @@ const App: React.FC = () => {
       // Stage 3: Load Charts
       console.log("Stage 3: Fetching charts...");
       try {
-        const charts = await fetchSupportedCharts();
+        // Pass the sorted list to include dynamic tokens in chart fetch
+        const charts = await fetchExtendedCharts(currentList);
         
         // Update tokens with real charts where available
         setTokens(prevTokens => {

@@ -306,19 +306,82 @@ async function fetchDexScreenerPrices(addresses: string[]): Promise<Record<strin
   }
 }
 
-export const fetchSupportedCharts = async (): Promise<Record<string, number[]>> => {
+// Helper: Get CoinGecko ID from Contract Address
+async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
     try {
-        const ids = SUPPORTED_TOKENS.map(t => t.cgId).join(',');
         const data = await fetchWithRetry(
-          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&sparkline=true`,
+            `https://api.coingecko.com/api/v3/coins/base/contract/${contractAddress}`
+        );
+        return data.id || null;
+    } catch (e) {
+        // console.warn(`Could not find CG ID for ${contractAddress}`);
+        return null;
+    }
+}
+
+// --- Stage 3: Fetch Extended Charts (Async, with ID discovery) ---
+export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<Record<string, number[]>> => {
+    const idsToFetch = new Set<string>();
+    const addressToIdMap = new Map<string, string>(); // Map internal token ID (address) to CG ID
+
+    // 1. Collect IDs from Supported Tokens present in the list
+    currentTokens.forEach(t => {
+        const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
+        if (supported) {
+            idsToFetch.add(supported.cgId);
+        }
+    });
+
+    // 2. Identify Dynamic Tokens (unknown ID/is address)
+    // Limit to top 5 by order (assumed sorted by value) to preserve API rate limits
+    const dynamicTokens = currentTokens
+        .filter(t => !SUPPORTED_TOKENS.some(st => st.id === t.id) && t.id.startsWith('0x'))
+        .slice(0, 5);
+
+    // 3. Resolve IDs for dynamic tokens
+    if (dynamicTokens.length > 0) {
+        // We do this sequentially or parallel? Parallel might hit rate limits faster.
+        // Let's do simple loop with await, fetchWithRetry handles some backoff.
+        for (const token of dynamicTokens) {
+            const cgId = await getCoinGeckoId(token.id);
+            if (cgId) {
+                idsToFetch.add(cgId);
+                addressToIdMap.set(token.id, cgId);
+            }
+        }
+    }
+
+    if (idsToFetch.size === 0) return {};
+
+    try {
+        const idsArray = Array.from(idsToFetch);
+        const idsParam = idsArray.join(',');
+        
+        const data = await fetchWithRetry(
+          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idsParam}&sparkline=true`,
           undefined, 2
         );
+
         const charts: Record<string, number[]> = {};
+        
         if (Array.isArray(data)) {
             data.forEach((coin: any) => {
+                if (!coin.sparkline_in_7d?.price) return;
+                const sparkline = coin.sparkline_in_7d.price.slice(-24);
+
+                // Map back to internal TokenData ID
+                
+                // Case A: It's a supported token
                 const supported = SUPPORTED_TOKENS.find(st => st.cgId === coin.id);
-                if (supported && coin.sparkline_in_7d?.price) {
-                    charts[supported.id] = coin.sparkline_in_7d.price.slice(-24);
+                if (supported) {
+                    charts[supported.id] = sparkline;
+                }
+
+                // Case B: It's a dynamic token
+                for (const [internalId, cgId] of addressToIdMap.entries()) {
+                    if (cgId === coin.id) {
+                        charts[internalId] = sparkline;
+                    }
                 }
             });
         }
