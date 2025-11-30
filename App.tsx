@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
+import { TokenDetailModal } from './components/TokenDetailModal';
 import { fetchInitialUserAssets, fetchTokenPricesForList, fetchExtendedCharts } from './services/web3';
 import { TokenData } from './types';
 
@@ -13,6 +14,7 @@ const App: React.FC = () => {
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedToken, setSelectedToken] = useState<TokenData | null>(null);
 
   // 3-Stage Data Loading Logic
   const loadPortfolio = useCallback(async (address: string | null) => {
@@ -153,19 +155,9 @@ const App: React.FC = () => {
     }
   }, [loadPortfolio]);
 
-  // Handle Token Click
+  // Handle Token Click -> Open Modal
   const handleTokenClick = useCallback((token: TokenData) => {
-    if (token.address) {
-      try {
-        // Cast to any to bypass TS error: Object literal may only specify known properties
-        sdk.actions.viewToken({
-          address: token.address,
-          chainId: 'eip155:8453' // Base Chain ID
-        } as any);
-      } catch (e) {
-        console.error("Failed to view token:", e);
-      }
-    }
+    setSelectedToken(token);
   }, []);
 
   // Initialize Farcaster SDK
@@ -277,6 +269,12 @@ const App: React.FC = () => {
         )}
 
       </main>
+      
+      {/* Detail Modal */}
+      <TokenDetailModal 
+        token={selectedToken} 
+        onClose={() => setSelectedToken(null)} 
+      />
     </div>
   );
 };
