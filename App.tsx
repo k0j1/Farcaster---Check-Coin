@@ -93,25 +93,55 @@ const App: React.FC = () => {
     return null;
   }, []);
 
-  // Manual Wallet Connection
+  // Hybrid Wallet Connection (SDK -> Fallback to MetaMask)
   const connectWallet = useCallback(async () => {
     try {
       setLoading(true);
-      const addresses = await sdk.wallet.ethProvider.request({ 
-        method: 'eth_requestAccounts' 
-      }) as string[];
+      setError(null);
+      let connectedAddress: string | null = null;
 
-      if (addresses && addresses.length > 0) {
-        const address = addresses[0];
-        console.log("Wallet connected:", address);
-        setAccount(address);
-        await loadPortfolio(address);
+      // 1. Try Farcaster SDK Wallet
+      try {
+        console.log("Attempting Farcaster wallet connection...");
+        const addresses = await sdk.wallet.ethProvider.request({ 
+          method: 'eth_requestAccounts' 
+        }) as string[];
+        
+        if (addresses && addresses.length > 0) {
+          connectedAddress = addresses[0];
+        }
+      } catch (e) {
+        console.warn("Farcaster wallet connection failed, trying fallback...", e);
+      }
+
+      // 2. Fallback to Window Ethereum (MetaMask, etc.)
+      if (!connectedAddress && window.ethereum) {
+        try {
+          console.log("Attempting External wallet connection...");
+          const addresses = await window.ethereum.request({ 
+            method: 'eth_requestAccounts' 
+          }) as string[];
+          
+          if (addresses && addresses.length > 0) {
+            connectedAddress = addresses[0];
+          }
+        } catch (e) {
+          console.error("External wallet connection failed:", e);
+        }
+      }
+
+      // 3. Handle Result
+      if (connectedAddress) {
+        console.log("Wallet connected:", connectedAddress);
+        setAccount(connectedAddress);
+        await loadPortfolio(connectedAddress);
       } else {
-        setError("No accounts found.");
+        setError("No accounts found. Please unlock your wallet.");
         setLoading(false);
       }
+
     } catch (e) {
-      console.error("Wallet connection failed:", e);
+      console.error("Wallet connection critical error:", e);
       setError("Failed to connect wallet.");
       setLoading(false);
     }
