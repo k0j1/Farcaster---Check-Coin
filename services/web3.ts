@@ -308,6 +308,29 @@ async function fetchDexScreenerPrices(addresses: string[]): Promise<Record<strin
   }
 }
 
+// Fetch Chart from GeckoTerminal (DEX API - Free, supports Base addresses)
+async function fetchGeckoTerminalChart(address: string): Promise<number[] | null> {
+    try {
+        // GeckoTerminal Endpoint for OHLCV
+        const response = await fetchWithRetry(
+            `https://api.geckoterminal.com/api/v2/networks/base/tokens/${address}/ohlcv/hour?limit=24`,
+            undefined, 
+            2
+        );
+        
+        const ohlcvList = response?.data?.attributes?.ohlcv_list;
+        if (Array.isArray(ohlcvList)) {
+            // GeckoTerminal OHLCV format: [timestamp, open, high, low, close, volume]
+            // We want 'close' (index 4) and reverse it because it returns newest first usually
+            return ohlcvList.map((item: number[]) => item[4]).reverse();
+        }
+        return null;
+    } catch (e) {
+        // console.warn(`GeckoTerminal fetch failed for ${address}`, e);
+        return null;
+    }
+}
+
 // Helper: Get CoinGecko ID from Contract Address
 async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
     try {
@@ -316,84 +339,101 @@ async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
         );
         return data.id || null;
     } catch (e) {
-        // console.warn(`Could not find CG ID for ${contractAddress}`);
         return null;
     }
 }
 
 // --- Stage 3: Fetch Extended Charts (Async, with ID discovery) ---
 export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<Record<string, number[]>> => {
+    const charts: Record<string, number[]> = {};
     const idsToFetch = new Set<string>();
-    const addressToIdMap = new Map<string, string>(); // Map internal token ID (address) to CG ID
+    const addressToIdMap = new Map<string, string>(); 
+    const missingChartTokenIds: string[] = [];
 
-    // 1. Collect IDs from Supported Tokens
+    // 1. Try Batch Fetch from Main CoinGecko Market API (Most efficient)
     currentTokens.forEach(t => {
         const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
         if (supported) {
             idsToFetch.add(supported.cgId);
         }
     });
-
-    // 2. Identify Dynamic Tokens (unknown ID/is address)
-    // Reduce to top 3 to prevent rate limiting (was 5)
+    
+    // Also try to resolve Top dynamic tokens to CG IDs
     const dynamicTokens = currentTokens
         .filter(t => !SUPPORTED_TOKENS.some(st => st.id === t.id) && t.id.startsWith('0x'))
         .slice(0, 3);
 
-    // 3. Resolve IDs for dynamic tokens with rate limiting delays
-    if (dynamicTokens.length > 0) {
-        for (const token of dynamicTokens) {
-            // Add delay BEFORE request to respect API rate limits
-            await new Promise(r => setTimeout(r, 1200)); 
+    for (const token of dynamicTokens) {
+        await new Promise(r => setTimeout(r, 1200)); 
+        const cgId = await getCoinGeckoId(token.id);
+        if (cgId) {
+            idsToFetch.add(cgId);
+            addressToIdMap.set(token.id, cgId);
+        } else {
+            // If no CG ID found, mark for GeckoTerminal fallback
+            missingChartTokenIds.push(token.id); 
+        }
+    }
+
+    // Execute Bulk Fetch
+    if (idsToFetch.size > 0) {
+        try {
+            const idsArray = Array.from(idsToFetch);
+            const idsParam = idsArray.join(',');
+            const data = await fetchWithRetry(
+                `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idsParam}&sparkline=true`,
+                undefined, 1 // Fewer retries on bulk, fail fast to fallback
+            );
+
+            if (Array.isArray(data)) {
+                data.forEach((coin: any) => {
+                    if (coin.sparkline_in_7d?.price) {
+                        const sparkline = coin.sparkline_in_7d.price.slice(-24);
+                        
+                        // Map supported
+                        const supported = SUPPORTED_TOKENS.find(st => st.cgId === coin.id);
+                        if (supported) charts[supported.id] = sparkline;
+                        
+                        // Map dynamic
+                        for (const [internalId, cgId] of addressToIdMap.entries()) {
+                            if (cgId === coin.id) charts[internalId] = sparkline;
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn("Bulk chart fetch failed, switching to individual fallbacks.");
+        }
+    }
+
+    // 2. Identify missing charts (failed bulk or not in bulk)
+    // We check which tokens still don't have charts in our `charts` object
+    // We prioritize top holdings
+    const tokensNeedingCharts = currentTokens
+        .filter(t => !charts[t.id])
+        .slice(0, 10); // Limit to top 10 to avoid excessive requests
+
+    // 3. Fallback: Fetch individual charts from GeckoTerminal (Free, DEX API)
+    for (const token of tokensNeedingCharts) {
+        // Resolve address: if dynamic, ID is address. If supported, get address from config.
+        let address = token.id.startsWith('0x') ? token.id : token.address;
+        
+        // Some supported tokens might not have address in TokenData if user logic failed, look it up
+        if (!address) {
+             const sup = SUPPORTED_TOKENS.find(st => st.id === token.id);
+             address = sup?.address;
+        }
+
+        if (address) {
+            // Delay to respect GeckoTerminal rate limit (~30 req/min => 1 req every 2 sec to be safe)
+            await new Promise(r => setTimeout(r, 1500));
             
-            const cgId = await getCoinGeckoId(token.id);
-            if (cgId) {
-                idsToFetch.add(cgId);
-                addressToIdMap.set(token.id, cgId);
+            const gtChart = await fetchGeckoTerminalChart(address);
+            if (gtChart && gtChart.length > 0) {
+                charts[token.id] = gtChart;
             }
         }
     }
 
-    if (idsToFetch.size === 0) return {};
-
-    try {
-        const idsArray = Array.from(idsToFetch);
-        const idsParam = idsArray.join(',');
-        
-        // Final chart fetch (markets endpoint supports multiple IDs)
-        const data = await fetchWithRetry(
-          `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idsParam}&sparkline=true`,
-          undefined, 2
-        );
-
-        const charts: Record<string, number[]> = {};
-        
-        if (Array.isArray(data)) {
-            data.forEach((coin: any) => {
-                if (!coin.sparkline_in_7d?.price) return;
-                const sparkline = coin.sparkline_in_7d.price.slice(-24);
-
-                // Map back to internal TokenData ID
-                
-                // Case A: It's a supported token
-                const supported = SUPPORTED_TOKENS.find(st => st.cgId === coin.id);
-                if (supported) {
-                    charts[supported.id] = sparkline;
-                }
-
-                // Case B: It's a dynamic token
-                for (const [internalId, cgId] of addressToIdMap.entries()) {
-                    if (cgId === coin.id) {
-                        charts[internalId] = sparkline;
-                    }
-                }
-            });
-        }
-        return charts;
-    } catch (e) {
-        console.error("Chart fetch failed", e);
-        // If the batch failed, we still want to return empty object so the app doesn't crash
-        // The UI will keep showing synthetic charts
-        return {};
-    }
+    return charts;
 }
