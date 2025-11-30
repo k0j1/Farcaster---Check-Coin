@@ -28,7 +28,10 @@
     <!-- Frame v2 Action Button (Launch App) -->
     <meta property="fc:frame:button:1" content="Check Assets" />
     <meta property="fc:frame:button:1:action" content="link" />
-    <!-- target is omitted to default to the current URL, or you can specify your deployed URL -->
+    
+    <!-- Farcaster Splash Screen -->
+    <meta property="fc:frame:splash:image" content="https://drive.google.com/uc?export=view&id=1P_4tMGAR_bB9ypTPtwrof7_KNH3flJck" />
+    <meta property="fc:frame:splash:background_color" content="#f4f5f7" />
 
     <!-- Web Manifest -->
     <link rel="manifest" href="./manifest.json" />
@@ -74,6 +77,29 @@
         width: 0px;
         background: transparent;
       }
+      /* Initial Loading styles */
+      .app-loader {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background-color: #f4f5f7;
+        z-index: 9999;
+      }
+      .app-loader img {
+        width: 80px;
+        height: 80px;
+        object-fit: contain;
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: .5; }
+      }
     </style>
 <script type="importmap">
 {
@@ -91,7 +117,12 @@
 </script>
 </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Splash Screen for Web (Replaced by React on Hydration) -->
+      <div class="app-loader">
+        <img src="https://drive.google.com/uc?export=view&id=1P_4tMGAR_bB9ypTPtwrof7_KNH3flJck" alt="Loading..." />
+      </div>
+    </div>
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>
