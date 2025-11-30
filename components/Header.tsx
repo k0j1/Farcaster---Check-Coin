@@ -2,24 +2,38 @@
 import React from 'react';
 import sdk from '@farcaster/frame-sdk';
 import { Share } from 'lucide-react';
+import { TokenData } from '../types';
 
 interface HeaderProps {
   totalBalance: number;
   isConnected: boolean;
   isUpdating?: boolean;
+  selectedToken: TokenData | null;
   onConnect: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpdating, onConnect }) => {
+export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpdating, selectedToken, onConnect }) => {
   
   const handleShare = () => {
-    // Construct the Warpcast intent URL
-    const text = encodeURIComponent("Checking my onchain assets on Base. 🔵📉📈 \n\n#Base #Farcaster");
-    // In a real app, use window.location.href or your specific frame URL
-    const embedUrl = encodeURIComponent(window.location.href); 
-    const shareUrl = `https://warpcast.com/~/compose?text=${text}&embeds[]=${embedUrl}`;
+    let text = "Checking my onchain assets on Base. 🔵📉📈 \n\n#Base #Farcaster";
+    let shareUrl = window.location.href;
+
+    // Remove any existing parameters and hash
+    const urlObj = new URL(shareUrl);
+    urlObj.search = "";
+    urlObj.hash = "";
+
+    // If a token is selected, share that specific token page
+    if (selectedToken && selectedToken.address) {
+       text = `Check out $${selectedToken.symbol} on Base! 🔵🚀 \n\n#Base #Farcaster #${selectedToken.symbol}`;
+       urlObj.searchParams.set("token", selectedToken.address);
+    }
     
-    sdk.actions.openUrl(shareUrl);
+    const embedUrl = encodeURIComponent(urlObj.toString());
+    const encodedText = encodeURIComponent(text);
+    const warpcastUrl = `https://warpcast.com/~/compose?text=${encodedText}&embeds[]=${embedUrl}`;
+    
+    sdk.actions.openUrl(warpcastUrl);
   };
 
   return (

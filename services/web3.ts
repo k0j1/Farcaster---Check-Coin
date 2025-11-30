@@ -17,12 +17,6 @@ async function fetchWithRetry(url: string, options?: RequestInit, retries = 5, b
       if (!response.ok) {
          if (response.status === 429) {
             // Rate limit, wait longer (exponential + jitter)
-            // 3000 * 2^0 = 3s
-            // 3000 * 2^1 = 6s
-            // 3000 * 2^2 = 12s
-            // 3000 * 2^3 = 24s
-            // 3000 * 2^4 = 48s
-            // Total cover > 90s
             const waitTime = backoff * Math.pow(2, i) + (Math.random() * 1000);
             console.warn(`Rate limited (429). Waiting ${Math.round(waitTime / 1000)}s...`);
             await new Promise(r => setTimeout(r, waitTime));
@@ -92,6 +86,60 @@ async function fetchUserTokenList(address: string): Promise<any[]> {
 function findSupportedToken(contractAddress: string) {
     return SUPPORTED_TOKENS.find(t => t.address === contractAddress.toLowerCase());
 }
+
+// --- Fetch Single Token Data (For Deep Linking / Shared View) ---
+export const fetchSingleTokenData = async (address: string): Promise<TokenData | null> => {
+    const lowerAddr = address.toLowerCase();
+    
+    // 1. Check if supported
+    const supported = findSupportedToken(lowerAddr);
+    let tokenBase: TokenData;
+
+    if (supported) {
+        tokenBase = {
+            id: supported.id,
+            symbol: supported.symbol,
+            name: supported.name,
+            price: 0,
+            balance: 0,
+            change24h: 0,
+            history: [],
+            imageUrl: supported.imageUrl,
+            address: lowerAddr
+        };
+    } else {
+        // 2. If not supported, try to get basics from MintClub or DexScreener
+        // For now, minimal placeholder, price fetch will fill details
+        tokenBase = {
+            id: lowerAddr,
+            symbol: 'TOKEN',
+            name: 'Shared Token',
+            price: 0,
+            balance: 0,
+            change24h: 0,
+            history: [],
+            address: lowerAddr
+        };
+    }
+
+    // 3. Fetch Price
+    try {
+        const pricedList = await fetchTokenPricesForList([tokenBase]);
+        if (pricedList.length > 0) {
+            const token = pricedList[0];
+            // Try to get chart
+            const charts = await fetchExtendedCharts([token]);
+            if (charts[token.id]) {
+                token.history = charts[token.id];
+            }
+            return token;
+        }
+    } catch (e) {
+        console.warn("Failed to fetch single token data", e);
+    }
+    
+    return tokenBase;
+};
 
 // --- Stage 1: Initial User Assets (Fast, No Prices) ---
 export const fetchInitialUserAssets = async (address: string | null): Promise<TokenData[]> => {

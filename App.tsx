@@ -4,7 +4,7 @@ import sdk from '@farcaster/frame-sdk';
 import { Header } from './components/Header';
 import { TokenRow } from './components/TokenRow';
 import { TokenDetailModal } from './components/TokenDetailModal';
-import { fetchInitialUserAssets, fetchTokenPricesForList, fetchExtendedCharts } from './services/web3';
+import { fetchInitialUserAssets, fetchTokenPricesForList, fetchExtendedCharts, fetchSingleTokenData } from './services/web3';
 import { TokenData } from './types';
 
 const App: React.FC = () => {
@@ -165,7 +165,7 @@ const App: React.FC = () => {
     setSelectedToken(token);
   }, []);
 
-  // Initialize Farcaster SDK
+  // Initialize Farcaster SDK and check for deep links
   useEffect(() => {
     const initSDK = async () => {
       if (isSDKLoaded) return;
@@ -174,6 +174,20 @@ const App: React.FC = () => {
         setIsSDKLoaded(true);
         sdk.actions.ready();
         
+        // --- Deep Linking Check ---
+        // Check for ?token=ADDRESS parameter in URL
+        const params = new URLSearchParams(window.location.search);
+        const sharedTokenAddress = params.get('token');
+        
+        if (sharedTokenAddress) {
+            console.log("Deep Link Detected:", sharedTokenAddress);
+            // Fetch single token data immediately for display
+            fetchSingleTokenData(sharedTokenAddress).then(token => {
+                if (token) setSelectedToken(token);
+            });
+        }
+        // ---------------------------
+
         const timeout = new Promise((_, reject) => 
           setTimeout(() => reject(new Error("SDK Context Timeout")), 2000)
         );
@@ -214,6 +228,7 @@ const App: React.FC = () => {
         totalBalance={totalValue} 
         isConnected={!!account} 
         isUpdating={isUpdating}
+        selectedToken={selectedToken}
         onConnect={connectWallet}
       />
 
