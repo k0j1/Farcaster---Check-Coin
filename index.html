@@ -2,27 +2,37 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     
     <!-- App Metadata -->
     <title>Base Portfolio</title>
     <meta name="description" content="Track your Base assets with real-time charts.">
     
+    <!-- Mobile Web App Settings -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#f4f5f7">
+
+    <!-- Icons -->
+    <link rel="icon" type="image/png" href="https://placehold.co/32x32/2ecc71/ffffff/png?text=B" />
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/2ecc71/ffffff/png?text=B" />
+    
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Base Portfolio Tracker" />
     <meta property="og:description" content="Track your Base assets with real-time charts on Farcaster." />
-    <meta property="og:image" content="https://placehold.co/1200x630/2ecc71/ffffff/png?text=Base+Portfolio+Tracker" />
+    <meta property="og:image" content="./embed.png" />
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:title" content="Base Portfolio Tracker" />
     <meta property="twitter:description" content="Track your Base assets with real-time charts on Farcaster." />
-    <meta property="twitter:image" content="https://placehold.co/1200x630/2ecc71/ffffff/png?text=Base+Portfolio+Tracker" />
+    <meta property="twitter:image" content="./embed.png" />
     
     <!-- Farcaster Frame v2 Meta Tags -->
     <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://placehold.co/1200x630/2ecc71/ffffff/png?text=Base+Portfolio+Tracker" />
+    <meta property="fc:frame:image" content="./embed.png" />
     <meta property="fc:frame:image:aspect_ratio" content="1.91:1" />
     
     <!-- Frame v2 Action Button (Launch App) -->
@@ -56,6 +66,9 @@
                 border: '#e5e7eb'
               }
             },
+            screens: {
+              'standalone': { 'raw': '(display-mode: standalone)' },
+            }
           },
         },
       }
@@ -71,6 +84,8 @@
         background-color: #f4f5f7;
         color: #333333;
         -webkit-font-smoothing: antialiased;
+        /* Prevent pull-to-refresh on mobile */
+        overscroll-behavior-y: none;
       }
       /* Hide scrollbar for miniapp feel */
       ::-webkit-scrollbar {
@@ -104,14 +119,14 @@
 <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "mint.club-v2-sdk": "https://aistudiocdn.com/mint.club-v2-sdk@^1.4.14",
-    "@farcaster/frame-sdk": "https://aistudiocdn.com/@farcaster/frame-sdk@^0.1.12",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
     "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "@farcaster/frame-sdk": "https://aistudiocdn.com/@farcaster/frame-sdk@^0.1.12",
+    "mint.club-v2-sdk": "https://aistudiocdn.com/mint.club-v2-sdk@^1.4.14"
   }
 }
 </script>
