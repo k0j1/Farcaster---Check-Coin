@@ -1,3 +1,4 @@
+
 import { mintclub } from 'mint.club-v2-sdk';
 import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
@@ -8,16 +9,22 @@ export const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-// Retry Helper with improved 429 handling
-async function fetchWithRetry(url: string, options?: RequestInit, retries = 3, backoff = 2000): Promise<any> {
+// Retry Helper with improved 429 handling for long waits (CoinGecko 1 min limit)
+async function fetchWithRetry(url: string, options?: RequestInit, retries = 5, backoff = 3000): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
       if (!response.ok) {
          if (response.status === 429) {
             // Rate limit, wait longer (exponential + jitter)
+            // 3000 * 2^0 = 3s
+            // 3000 * 2^1 = 6s
+            // 3000 * 2^2 = 12s
+            // 3000 * 2^3 = 24s
+            // 3000 * 2^4 = 48s
+            // Total cover > 90s
             const waitTime = backoff * Math.pow(2, i) + (Math.random() * 1000);
-            console.warn(`Rate limited (429). Waiting ${Math.round(waitTime)}ms...`);
+            console.warn(`Rate limited (429). Waiting ${Math.round(waitTime / 1000)}s...`);
             await new Promise(r => setTimeout(r, waitTime));
             continue;
          }

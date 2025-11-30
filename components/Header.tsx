@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface HeaderProps {
@@ -42,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpd
 
           {/* Background Update Indicator */}
           {isConnected && isUpdating && (
-             <div className="mt-1 text-[10px] text-gray-400 animate-pulse font-medium">
+             <div className="mt-1 text-[10px] text-amber-500 animate-pulse font-bold tracking-wide">
                 Updating...
              </div>
           )}
