@@ -10,13 +10,11 @@ interface TokenDetailModalProps {
 
 export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClose }) => {
   const [mcDetails, setMcDetails] = useState<any>(null);
-  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     if (!token || !token.address) return;
     
     const fetchDetails = async () => {
-      setLoadingDetails(true);
       try {
         // Attempt to fetch Mint Club specific details (Max Supply, Current Supply, etc.)
         // This is most effective for tokens created via Mint Club protocol.
@@ -26,8 +24,6 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClo
       } catch (e) {
         // Silently fail if not a Mint Club token or API error
         setMcDetails(null);
-      } finally {
-        setLoadingDetails(false);
       }
     };
 
@@ -53,8 +49,6 @@ export const TokenDetailModal: React.FC<TokenDetailModalProps> = ({ token, onClo
        navigator.clipboard.writeText(token.address);
     }
   };
-
-  const isMintClubToken = !!mcDetails;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
