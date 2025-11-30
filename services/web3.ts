@@ -8,15 +8,17 @@ export const truncateAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
-// Retry Helper
-async function fetchWithRetry(url: string, options?: RequestInit, retries = 3, backoff = 1000): Promise<any> {
+// Retry Helper with improved 429 handling
+async function fetchWithRetry(url: string, options?: RequestInit, retries = 3, backoff = 2000): Promise<any> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
       if (!response.ok) {
          if (response.status === 429) {
-            // Rate limit, wait longer
-            await new Promise(r => setTimeout(r, backoff * (i + 1) * 2));
+            // Rate limit, wait longer (exponential + jitter)
+            const waitTime = backoff * Math.pow(2, i) + (Math.random() * 1000);
+            console.warn(`Rate limited (429). Waiting ${Math.round(waitTime)}ms...`);
+            await new Promise(r => setTimeout(r, waitTime));
             continue;
          }
          throw new Error(`HTTP ${response.status}`);
@@ -324,7 +326,7 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
     const idsToFetch = new Set<string>();
     const addressToIdMap = new Map<string, string>(); // Map internal token ID (address) to CG ID
 
-    // 1. Collect IDs from Supported Tokens present in the list
+    // 1. Collect IDs from Supported Tokens
     currentTokens.forEach(t => {
         const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
         if (supported) {
@@ -333,16 +335,17 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
     });
 
     // 2. Identify Dynamic Tokens (unknown ID/is address)
-    // Limit to top 5 by order (assumed sorted by value) to preserve API rate limits
+    // Reduce to top 3 to prevent rate limiting (was 5)
     const dynamicTokens = currentTokens
         .filter(t => !SUPPORTED_TOKENS.some(st => st.id === t.id) && t.id.startsWith('0x'))
-        .slice(0, 5);
+        .slice(0, 3);
 
-    // 3. Resolve IDs for dynamic tokens
+    // 3. Resolve IDs for dynamic tokens with rate limiting delays
     if (dynamicTokens.length > 0) {
-        // We do this sequentially or parallel? Parallel might hit rate limits faster.
-        // Let's do simple loop with await, fetchWithRetry handles some backoff.
         for (const token of dynamicTokens) {
+            // Add delay BEFORE request to respect API rate limits
+            await new Promise(r => setTimeout(r, 1200)); 
+            
             const cgId = await getCoinGeckoId(token.id);
             if (cgId) {
                 idsToFetch.add(cgId);
@@ -357,6 +360,7 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
         const idsArray = Array.from(idsToFetch);
         const idsParam = idsArray.join(',');
         
+        // Final chart fetch (markets endpoint supports multiple IDs)
         const data = await fetchWithRetry(
           `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${idsParam}&sparkline=true`,
           undefined, 2
@@ -388,6 +392,8 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
         return charts;
     } catch (e) {
         console.error("Chart fetch failed", e);
+        // If the batch failed, we still want to return empty object so the app doesn't crash
+        // The UI will keep showing synthetic charts
         return {};
     }
 }
