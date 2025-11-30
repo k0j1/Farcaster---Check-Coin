@@ -16,12 +16,10 @@ export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpd
   
   const handleShare = () => {
     let text = "Checking my onchain assets on Base. 🔵📉📈 \n\n#Base #Farcaster";
-    let shareUrl = window.location.href;
-
-    // Remove any existing parameters and hash
-    const urlObj = new URL(shareUrl);
-    urlObj.search = "";
-    urlObj.hash = "";
+    
+    // Construct a clean base URL without query params or hash
+    const baseUrl = window.location.origin + window.location.pathname;
+    const urlObj = new URL(baseUrl);
 
     // If a token is selected, share that specific token page
     if (selectedToken && selectedToken.address) {

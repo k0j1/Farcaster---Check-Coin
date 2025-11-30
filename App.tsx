@@ -174,10 +174,23 @@ const App: React.FC = () => {
         setIsSDKLoaded(true);
         sdk.actions.ready();
         
-        // --- Deep Linking Check ---
-        // Check for ?token=ADDRESS parameter in URL
-        const params = new URLSearchParams(window.location.search);
-        const sharedTokenAddress = params.get('token');
+        // --- Deep Linking Check (Robust for Search & Hash) ---
+        // Some routers put params after the hash
+        const getParam = (name: string) => {
+            const currentUrl = new URL(window.location.href);
+            // 1. Check standard search params
+            if (currentUrl.searchParams.has(name)) {
+                return currentUrl.searchParams.get(name);
+            }
+            // 2. Check hash params (e.g. /#/?token=...)
+            if (currentUrl.hash.includes('?')) {
+                const hashParams = new URLSearchParams(currentUrl.hash.split('?')[1]);
+                return hashParams.get(name);
+            }
+            return null;
+        };
+
+        const sharedTokenAddress = getParam('token');
         
         if (sharedTokenAddress) {
             console.log("Deep Link Detected:", sharedTokenAddress);
