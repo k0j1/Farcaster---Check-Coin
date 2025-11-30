@@ -1,4 +1,3 @@
-
 import { mintclub } from 'mint.club-v2-sdk';
 import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
@@ -180,7 +179,9 @@ async function fetchMintClubPrices(tokens: TokenData[]): Promise<Record<string, 
                 return;
             }
 
-            const price = await mintclub.network('base').token(identifier).getUsdPrice();
+            // TS Error Fix: Cast to any because getUsdPrice might not be in the typings of the version installed
+            const mcToken = mintclub.network('base').token(identifier) as any;
+            const price = await mcToken.getUsdPrice();
             
             if (typeof price === 'number' && price > 0) {
                 prices[token.id] = price;
@@ -242,7 +243,6 @@ export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<Toke
     const missingPrices = tokens.filter(t => {
         // We want to fetch from DexScreener if we don't have price OR if we don't have change data
         // (Since Mint Club doesn't provide change, we might want to check DexScreener even if Mint Club worked)
-        const hasMC = !!mintClubPrices[t.id];
         const hasCG = !!pricesFromOtherSources[t.id];
         return !hasCG; // If we have CG, we have change. If not, try DexScreener for change/price.
     }).map(t => {
@@ -345,18 +345,6 @@ async function fetchGeckoTerminalChart(address: string): Promise<number[] | null
         return null;
     } catch (e) {
         // console.warn(`GeckoTerminal fetch failed for ${address}`, e);
-        return null;
-    }
-}
-
-// Helper: Get CoinGecko ID from Contract Address (Added for reference but unused in new logic to save API calls)
-async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
-    try {
-        const data = await fetchWithRetry(
-            `https://api.coingecko.com/api/v3/coins/base/contract/${contractAddress}`
-        );
-        return data.id || null;
-    } catch (e) {
         return null;
     }
 }

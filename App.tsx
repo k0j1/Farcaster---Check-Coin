@@ -120,10 +120,11 @@ const App: React.FC = () => {
       }
 
       // 2. Fallback to Window Ethereum (MetaMask, etc.)
-      if (!connectedAddress && window.ethereum) {
+      const win = window as any;
+      if (!connectedAddress && win.ethereum) {
         try {
           console.log("Attempting External wallet connection...");
-          const addresses = await window.ethereum.request({ 
+          const addresses = await win.ethereum.request({ 
             method: 'eth_requestAccounts' 
           }) as string[];
           

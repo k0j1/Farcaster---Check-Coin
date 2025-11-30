@@ -16,9 +16,3 @@ export interface PortfolioState {
   tokens: TokenData[];
   isLoading: boolean;
 }
-
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
