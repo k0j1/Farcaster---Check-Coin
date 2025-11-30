@@ -1,5 +1,7 @@
 
 import React from 'react';
+import sdk from '@farcaster/frame-sdk';
+import { Share } from 'lucide-react';
 
 interface HeaderProps {
   totalBalance: number;
@@ -9,6 +11,17 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpdating, onConnect }) => {
+  
+  const handleShare = () => {
+    // Construct the Warpcast intent URL
+    const text = encodeURIComponent("Checking my onchain assets on Base. 🔵📉📈 \n\n#Base #Farcaster");
+    // In a real app, use window.location.href or your specific frame URL
+    const embedUrl = encodeURIComponent(window.location.href); 
+    const shareUrl = `https://warpcast.com/~/compose?text=${text}&embeds[]=${embedUrl}`;
+    
+    sdk.actions.openUrl(shareUrl);
+  };
+
   return (
     <div className="bg-white px-6 py-6 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
       <div className="flex justify-between items-start">
@@ -25,25 +38,37 @@ export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpd
           </div>
         </div>
         
-        {/* Right Side: Status or Connect Button */}
-        <div className="flex flex-col items-end">
-          {isConnected ? (
-            <div className="flex items-center space-x-2 mt-2">
-              <span className="text-xs text-gray-400 font-medium">Active</span>
-              <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(46,204,113,0.6)]" />
-            </div>
-          ) : (
+        {/* Right Side: Status, Share, Connect */}
+        <div className="flex flex-col items-end gap-2">
+          
+          <div className="flex items-center gap-2">
+            {/* Share Button */}
             <button 
-              onClick={onConnect}
-              className="mt-1 px-4 py-2 bg-coincheck-green hover:bg-green-600 text-white text-xs font-bold rounded-full shadow-sm transition-all active:scale-95"
+              onClick={handleShare}
+              className="p-2 text-gray-400 hover:text-coincheck-green hover:bg-green-50 rounded-full transition-colors"
+              aria-label="Share on Warpcast"
             >
-              Connect
+              <Share size={20} />
             </button>
-          )}
+
+            {isConnected ? (
+              <div className="flex items-center space-x-2 px-3 py-1 bg-gray-100 rounded-full">
+                <div className="h-2 w-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(46,204,113,0.6)]" />
+                <span className="text-xs text-gray-500 font-medium">Active</span>
+              </div>
+            ) : (
+              <button 
+                onClick={onConnect}
+                className="px-4 py-2 bg-coincheck-green hover:bg-green-600 text-white text-xs font-bold rounded-full shadow-sm transition-all active:scale-95"
+              >
+                Connect
+              </button>
+            )}
+          </div>
 
           {/* Background Update Indicator */}
           {isConnected && isUpdating && (
-             <div className="mt-1 text-[10px] text-amber-500 animate-pulse font-bold tracking-wide">
+             <div className="text-[10px] text-amber-500 animate-pulse font-bold tracking-wide mr-1">
                 Updating...
              </div>
           )}
