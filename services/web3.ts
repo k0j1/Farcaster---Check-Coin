@@ -1,4 +1,5 @@
 
+import { mintclub } from 'mint.club-v2-sdk';
 import { SUPPORTED_TOKENS, BASE_RPC_URL } from '../constants';
 import { TokenData } from '../types';
 
@@ -158,31 +159,62 @@ export const fetchInitialUserAssets = async (address: string | null): Promise<To
 };
 
 
-// --- Stage 2: Fetch Prices for List (Async) ---
-export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<TokenData[]> => {
-    const addressesToFetch: string[] = [];
-    const cgIdsToFetch: string[] = [];
-    const tokenMap = new Map<string, TokenData>();
-
-    // Classify tokens
-    tokens.forEach(t => {
-        tokenMap.set(t.id, t);
-        
-        // Check if it's a supported token with a CoinGecko ID
-        const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
-        if (supported) {
-            cgIdsToFetch.push(supported.cgId);
-        } else {
-            // It's a dynamic token, ID is the address
-            if (t.id.startsWith('0x')) {
-                addressesToFetch.push(t.id);
+// --- Fetch Prices via Mint Club SDK ---
+async function fetchMintClubPrices(tokens: TokenData[]): Promise<Record<string, number>> {
+    const prices: Record<string, number> = {};
+    const promises = tokens.map(async (token) => {
+        try {
+            // Mint Club requires symbol or address. Address is safer.
+            // For native ETH (id: ethereum), Mint Club might use 'ETH' or specific logic.
+            // Using 'WETH' address for ETH approximation or specific call if needed, 
+            // but standard 'eth' symbol works for many SDKs. 
+            // mintclub.network('base').token('ETH').getUsdPrice() works.
+            
+            let identifier = token.address;
+            
+            // Special handling for Native ETH
+            if (token.id === 'ethereum' || token.symbol === 'ETH') {
+                identifier = 'ETH';
+            } else if (!identifier) {
+                // If no address (shouldn't happen for ERC20), skip
+                return;
             }
+
+            const price = await mintclub.network('base').token(identifier).getUsdPrice();
+            
+            if (typeof price === 'number' && price > 0) {
+                prices[token.id] = price;
+            }
+        } catch (e) {
+            // Silently fail for individual token and let fallback handle it
+            // console.warn(`Mint Club price fetch failed for ${token.symbol}`);
         }
     });
 
-    const prices: Record<string, { price: number, change: number }> = {};
+    // Limit concurrency if needed, but for wallet size (<50) it's usually fine to parallelize
+    await Promise.all(promises);
+    return prices;
+}
 
-    // 1. Fetch from CoinGecko Markets (for supported IDs)
+
+// --- Stage 2: Fetch Prices for List (Async) ---
+export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<TokenData[]> => {
+    
+    // 1. Fetch Prices from Mint Club SDK (Priority 1)
+    const mintClubPrices = await fetchMintClubPrices(tokens);
+
+    // 2. Prepare for Fallback Fetch (CoinGecko / DexScreener) to get Change% or missing prices
+    const cgIdsToFetch: string[] = [];
+    const pricesFromOtherSources: Record<string, { price: number, change: number }> = {};
+
+    tokens.forEach(t => {
+        const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
+        if (supported) {
+            cgIdsToFetch.push(supported.cgId);
+        }
+    });
+
+    // 3. Fetch from CoinGecko Markets (ONLY for supported IDs)
     if (cgIdsToFetch.length > 0) {
         try {
             const idsParam = cgIdsToFetch.join(',');
@@ -192,10 +224,9 @@ export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<Toke
             );
             if (Array.isArray(data)) {
                 data.forEach((coin: any) => {
-                    // Map back from CG ID to our internal ID
                     const supported = SUPPORTED_TOKENS.find(st => st.cgId === coin.id);
                     if (supported) {
-                         prices[supported.id] = { 
+                         pricesFromOtherSources[supported.id] = { 
                              price: coin.current_price || 0, 
                              change: coin.price_change_percentage_24h || 0 
                          };
@@ -207,48 +238,27 @@ export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<Toke
         }
     }
 
-    // 2. Fetch from CoinGecko Simple Price (for contract addresses)
-    if (addressesToFetch.length > 0) {
-        try {
-            // Batch in chunks of 20
-            const chunk = addressesToFetch.slice(0, 20).join(',');
-            const data = await fetchWithRetry(
-                `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${chunk}&vs_currencies=usd&include_24hr_change=true`
-            );
-            for (const addr in data) {
-                const lowerAddr = addr.toLowerCase();
-                prices[lowerAddr] = {
-                    price: data[addr].usd || 0,
-                    change: data[addr].usd_24h_change || 0
-                };
-            }
-        } catch (e) {
-            console.warn("CG Simple Price fetch failed", e);
-        }
-    }
-
-    // 3. Fallback: DexScreener (for anything with 0 price)
+    // 4. Fallback: DexScreener (for dynamic tokens OR failed supported tokens)
     const missingPrices = tokens.filter(t => {
-        const p = prices[t.id];
-        return !p || p.price === 0;
+        // We want to fetch from DexScreener if we don't have price OR if we don't have change data
+        // (Since Mint Club doesn't provide change, we might want to check DexScreener even if Mint Club worked)
+        const hasMC = !!mintClubPrices[t.id];
+        const hasCG = !!pricesFromOtherSources[t.id];
+        return !hasCG; // If we have CG, we have change. If not, try DexScreener for change/price.
     }).map(t => {
-         // Resolve address
          if (t.id.startsWith('0x')) return t.id;
          const sup = SUPPORTED_TOKENS.find(st => st.id === t.id);
          return sup?.address?.toLowerCase();
     }).filter((addr): addr is string => !!addr);
 
     if (missingPrices.length > 0) {
-        // Use DexScreener fetcher from previous code
         const dexPrices = await fetchDexScreenerPrices(missingPrices);
         for (const addr in dexPrices) {
-             // We need to map address back to ID. 
-             // If dynamic, ID is address. If supported, look up ID.
              const supported = SUPPORTED_TOKENS.find(st => st.address === addr);
              const id = supported ? supported.id : addr;
              
-             if (!prices[id] || prices[id].price === 0) {
-                 prices[id] = {
+             if (!pricesFromOtherSources[id]) {
+                 pricesFromOtherSources[id] = {
                      price: dexPrices[addr].usd,
                      change: dexPrices[addr].usd_24h_change
                  };
@@ -258,16 +268,23 @@ export const fetchTokenPricesForList = async (tokens: TokenData[]): Promise<Toke
 
     // Reconstruct token list with prices
     return tokens.map(t => {
-        const p = prices[t.id];
-        if (p) {
-            return {
-                ...t,
-                price: p.price,
-                change24h: p.change,
-                history: ensureHistory(p.price, p.change, [])
-            };
-        }
-        return t;
+        // Priority: Mint Club Price > Other Source Price
+        // Priority: Other Source Change > 0 (Mint Club doesn't provide change)
+        const mcPrice = mintClubPrices[t.id];
+        const otherData = pricesFromOtherSources[t.id];
+
+        // If Mint Club price exists, use it. Otherwise use fallback.
+        const finalPrice = mcPrice !== undefined ? mcPrice : (otherData?.price || 0);
+        
+        // Use change from others, or 0
+        const finalChange = otherData?.change || 0;
+
+        return {
+            ...t,
+            price: finalPrice,
+            change24h: finalChange,
+            history: ensureHistory(finalPrice, finalChange, [])
+        };
     });
 };
 
@@ -292,6 +309,7 @@ async function fetchDexScreenerPrices(addresses: string[]): Promise<Record<strin
       data.pairs.forEach((pair: any) => {
          if (pair.baseToken && pair.baseToken.address) {
             const addr = pair.baseToken.address.toLowerCase();
+            // Store by address
             if (!priceMap[addr]) {
                priceMap[addr] = {
                  usd: Number(pair.priceUsd) || 0,
@@ -331,7 +349,7 @@ async function fetchGeckoTerminalChart(address: string): Promise<number[] | null
     }
 }
 
-// Helper: Get CoinGecko ID from Contract Address
+// Helper: Get CoinGecko ID from Contract Address (Added for reference but unused in new logic to save API calls)
 async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
     try {
         const data = await fetchWithRetry(
@@ -347,10 +365,8 @@ async function getCoinGeckoId(contractAddress: string): Promise<string | null> {
 export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<Record<string, number[]>> => {
     const charts: Record<string, number[]> = {};
     const idsToFetch = new Set<string>();
-    const addressToIdMap = new Map<string, string>(); 
-    const missingChartTokenIds: string[] = [];
 
-    // 1. Try Batch Fetch from Main CoinGecko Market API (Most efficient)
+    // 1. Try Batch Fetch from Main CoinGecko Market API (ONLY for supported tokens)
     currentTokens.forEach(t => {
         const supported = SUPPORTED_TOKENS.find(st => st.id === t.id);
         if (supported) {
@@ -358,24 +374,7 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
         }
     });
     
-    // Also try to resolve Top dynamic tokens to CG IDs
-    const dynamicTokens = currentTokens
-        .filter(t => !SUPPORTED_TOKENS.some(st => st.id === t.id) && t.id.startsWith('0x'))
-        .slice(0, 3);
-
-    for (const token of dynamicTokens) {
-        await new Promise(r => setTimeout(r, 1200)); 
-        const cgId = await getCoinGeckoId(token.id);
-        if (cgId) {
-            idsToFetch.add(cgId);
-            addressToIdMap.set(token.id, cgId);
-        } else {
-            // If no CG ID found, mark for GeckoTerminal fallback
-            missingChartTokenIds.push(token.id); 
-        }
-    }
-
-    // Execute Bulk Fetch
+    // Execute Bulk Fetch for Supported Tokens
     if (idsToFetch.size > 0) {
         try {
             const idsArray = Array.from(idsToFetch);
@@ -389,15 +388,9 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
                 data.forEach((coin: any) => {
                     if (coin.sparkline_in_7d?.price) {
                         const sparkline = coin.sparkline_in_7d.price.slice(-24);
-                        
                         // Map supported
                         const supported = SUPPORTED_TOKENS.find(st => st.cgId === coin.id);
                         if (supported) charts[supported.id] = sparkline;
-                        
-                        // Map dynamic
-                        for (const [internalId, cgId] of addressToIdMap.entries()) {
-                            if (cgId === coin.id) charts[internalId] = sparkline;
-                        }
                     }
                 });
             }
@@ -406,14 +399,14 @@ export const fetchExtendedCharts = async (currentTokens: TokenData[]): Promise<R
         }
     }
 
-    // 2. Identify missing charts (failed bulk or not in bulk)
-    // We check which tokens still don't have charts in our `charts` object
-    // We prioritize top holdings
+    // 2. Fallback: Fetch individual charts from GeckoTerminal (Free, DEX API)
+    // Applies to:
+    //  - Dynamic tokens (never tried CG)
+    //  - Supported tokens that failed to get charts from CG
     const tokensNeedingCharts = currentTokens
         .filter(t => !charts[t.id])
         .slice(0, 10); // Limit to top 10 to avoid excessive requests
 
-    // 3. Fallback: Fetch individual charts from GeckoTerminal (Free, DEX API)
     for (const token of tokensNeedingCharts) {
         // Resolve address: if dynamic, ID is address. If supported, get address from config.
         let address = token.id.startsWith('0x') ? token.id : token.address;
