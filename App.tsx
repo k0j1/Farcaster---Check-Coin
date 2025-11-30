@@ -13,12 +13,14 @@ const App: React.FC = () => {
   const [tokens, setTokens] = useState<TokenData[]>([]);
   const [totalValue, setTotalValue] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false); // New state for background updates
   const [error, setError] = useState<string | null>(null);
   const [selectedToken, setSelectedToken] = useState<TokenData | null>(null);
 
   // 3-Stage Data Loading Logic
   const loadPortfolio = useCallback(async (address: string | null) => {
     setLoading(true);
+    setIsUpdating(true); // Start updating
     setError(null);
     let currentList: TokenData[] = [];
 
@@ -73,12 +75,15 @@ const App: React.FC = () => {
         });
       } catch (chartError) {
         console.warn("Failed to load background charts", chartError);
+      } finally {
+        setIsUpdating(false); // Finished all updates
       }
 
     } catch (e) {
       console.error("Failed to load portfolio", e);
       setError("Failed to load data. Please try again.");
       setLoading(false);
+      setIsUpdating(false);
     }
   }, []);
 
@@ -208,6 +213,7 @@ const App: React.FC = () => {
       <Header 
         totalBalance={totalValue} 
         isConnected={!!account} 
+        isUpdating={isUpdating}
         onConnect={connectWallet}
       />
 

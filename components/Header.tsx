@@ -3,10 +3,11 @@ import React from 'react';
 interface HeaderProps {
   totalBalance: number;
   isConnected: boolean;
+  isUpdating?: boolean;
   onConnect: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, onConnect }) => {
+export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, isUpdating, onConnect }) => {
   return (
     <div className="bg-white px-6 py-6 border-b border-gray-200 sticky top-0 z-10 shadow-sm">
       <div className="flex justify-between items-start">
@@ -24,7 +25,7 @@ export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, onCon
         </div>
         
         {/* Right Side: Status or Connect Button */}
-        <div>
+        <div className="flex flex-col items-end">
           {isConnected ? (
             <div className="flex items-center space-x-2 mt-2">
               <span className="text-xs text-gray-400 font-medium">Active</span>
@@ -37,6 +38,13 @@ export const Header: React.FC<HeaderProps> = ({ totalBalance, isConnected, onCon
             >
               Connect
             </button>
+          )}
+
+          {/* Background Update Indicator */}
+          {isConnected && isUpdating && (
+             <div className="mt-1 text-[10px] text-gray-400 animate-pulse font-medium">
+                Updating...
+             </div>
           )}
         </div>
       </div>
