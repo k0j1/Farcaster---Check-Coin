@@ -1,0 +1,67 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1200" height="630" fill="#F4F5F7"/>
+  
+  <!-- Header Card -->
+  <rect x="0" y="0" width="1200" height="200" fill="white"/>
+  <path d="M0 200 L1200 200" stroke="#E5E7EB" stroke-width="2"/>
+  
+  <!-- Header Content -->
+  <text x="60" y="80" font-family="sans-serif" font-weight="bold" font-size="24" fill="#9CA3AF" letter-spacing="0.05em">TOTAL BALANCE</text>
+  
+  <text x="60" y="150" font-family="sans-serif" font-weight="bold" font-size="80" fill="#333333">$ 12,450.32</text>
+  <text x="560" y="150" font-family="sans-serif" font-weight="medium" font-size="32" fill="#9CA3AF">USD</text>
+
+  <!-- Status Badge -->
+  <rect x="980" y="60" width="160" height="48" rx="24" fill="#ECFDF5"/>
+  <circle cx="1004" cy="84" r="6" fill="#2ECC71"/>
+  <text x="1024" y="90" font-family="sans-serif" font-weight="bold" font-size="18" fill="#065F46">Active</text>
+
+  <!-- List Header -->
+  <text x="60" y="260" font-family="sans-serif" font-weight="bold" font-size="20" fill="#6B7280" letter-spacing="0.05em">ASSET / PRICE</text>
+  <text x="600" y="260" font-family="sans-serif" font-weight="bold" font-size="20" fill="#6B7280" text-anchor="middle" letter-spacing="0.05em">24H CHART</text>
+  <text x="1140" y="260" font-family="sans-serif" font-weight="bold" font-size="20" fill="#6B7280" text-anchor="end" letter-spacing="0.05em">VALUE</text>
+
+  <!-- Row 1: ETH -->
+  <rect x="40" y="290" width="1120" height="100" rx="12" fill="white"/>
+  <!-- Icon -->
+  <circle cx="90" cy="340" r="24" fill="#627EEA"/>
+  <text x="82" y="348" font-family="sans-serif" font-weight="bold" font-size="20" fill="white">E</text>
+  <!-- Text -->
+  <text x="140" y="330" font-family="sans-serif" font-weight="bold" font-size="28" fill="#1F2937">ETH</text>
+  <text x="140" y="360" font-family="sans-serif" font-weight="medium" font-size="20" fill="#6B7280">$3,420.50</text>
+  <!-- Chart (Green) -->
+  <path d="M480 350 L510 330 L540 345 L570 320 L600 330 L630 310 L660 340 L690 320 L720 300" stroke="#2ECC71" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Value -->
+  <text x="1120" y="330" font-family="sans-serif" font-weight="medium" font-size="28" fill="#1F2937" text-anchor="end">$ 6,841.00</text>
+  <text x="1120" y="360" font-family="sans-serif" font-weight="bold" font-size="20" fill="#2ECC71" text-anchor="end">+4.2%</text>
+
+  <!-- Row 2: DEGEN -->
+  <rect x="40" y="410" width="1120" height="100" rx="12" fill="white"/>
+  <!-- Icon -->
+  <circle cx="90" cy="460" r="24" fill="#7C3AED"/>
+  <text x="82" y="468" font-family="sans-serif" font-weight="bold" font-size="20" fill="white">D</text>
+  <!-- Text -->
+  <text x="140" y="450" font-family="sans-serif" font-weight="bold" font-size="28" fill="#1F2937">DEGEN</text>
+  <text x="140" y="480" font-family="sans-serif" font-weight="medium" font-size="20" fill="#6B7280">$0.0241</text>
+  <!-- Chart (Green) -->
+  <path d="M480 470 L510 460 L540 465 L570 450 L600 455 L630 430 L660 440 L690 420 L720 415" stroke="#2ECC71" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Value -->
+  <text x="1120" y="450" font-family="sans-serif" font-weight="medium" font-size="28" fill="#1F2937" text-anchor="end">$ 2,410.50</text>
+  <text x="1120" y="480" font-family="sans-serif" font-weight="bold" font-size="20" fill="#2ECC71" text-anchor="end">+12.5%</text>
+
+  <!-- Row 3: TOSHI -->
+  <rect x="40" y="530" width="1120" height="100" rx="12" fill="white"/>
+  <!-- Icon -->
+  <circle cx="90" cy="580" r="24" fill="#0099FF"/>
+  <text x="82" y="588" font-family="sans-serif" font-weight="bold" font-size="20" fill="white">T</text>
+  <!-- Text -->
+  <text x="140" y="570" font-family="sans-serif" font-weight="bold" font-size="28" fill="#1F2937">TOSHI</text>
+  <text x="140" y="600" font-family="sans-serif" font-weight="medium" font-size="20" fill="#6B7280">$0.0004</text>
+  <!-- Chart (Red) -->
+  <path d="M480 550 L510 560 L540 555 L570 570 L600 565 L630 580 L660 575 L690 590 L720 600" stroke="#FF4D4D" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Value -->
+  <text x="1120" y="570" font-family="sans-serif" font-weight="medium" font-size="28" fill="#1F2937" text-anchor="end">$ 845.20</text>
+  <text x="1120" y="600" font-family="sans-serif" font-weight="bold" font-size="20" fill="#FF4D4D" text-anchor="end">-2.1%</text>
+
+</svg>

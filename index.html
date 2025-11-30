@@ -10,16 +10,18 @@
     
     <!-- Farcaster Frame v2 Meta Tags -->
     <meta property="fc:frame" content="vNext" />
-    <meta property="fc:frame:image" content="https://placehold.co/600x400/2ecc71/ffffff/png?text=Base+Portfolio+Tracker" />
-    <meta property="fc:frame:button:1" content="Check Your Assets" />
+    <!-- IMPORTANT: Farcaster Frames require an absolute URL to a PNG/JPG/GIF. 
+         SVG is not supported by all clients. Please convert public/embed.svg to public/embed.png 
+         and ensure this URL points to your deployed domain. -->
+    <meta property="fc:frame:image" content="./embed.png" />
+    <meta property="fc:frame:button:1" content="Check Assets" />
     <meta property="fc:frame:button:1:action" content="link" />
-    <!-- Note: In production, set this target to your deployed URL -->
     <meta property="fc:frame:button:1:target" content="https://github.com/YourUser/YourRepo" />
     
     <!-- Open Graph -->
     <meta property="og:title" content="Base Portfolio Tracker" />
     <meta property="og:description" content="Track your Base assets with real-time charts on Farcaster." />
-    <meta property="og:image" content="https://placehold.co/600x400/2ecc71/ffffff/png?text=Base+Portfolio+Tracker" />
+    <meta property="og:image" content="./embed.png" />
 
     <!-- Web Manifest -->
     <link rel="manifest" href="./manifest.json" />
